@@ -139,6 +139,7 @@ contract EnsoHandler is IIntentHandler {
 
       // Handle wrapped positions for output tokens: Approves position manager to spend underlying tokens + increases liquidity
       if (_params._positionManager.isWrappedPosition(token)) {
+        // @todo verification to avoid large dust?
         _handleWrappedPositionIncrease(
           increaseLiquidityTarget[i],
           callDataIncreaseLiquidity[i]
@@ -164,7 +165,7 @@ contract EnsoHandler is IIntentHandler {
     uint256 callDataLength = _callData.length;
     for (uint256 j; j < callDataLength; j++) {
       (bool success, ) = _target[j].call(_callData[j]);
-      if (!success) revert ErrorLibrary.CallFailed();
+      if (!success) revert ErrorLibrary.IncreaseLiquidityFailed();
     }
   }
 
@@ -173,7 +174,7 @@ contract EnsoHandler is IIntentHandler {
     bytes memory _callData
   ) private {
     (bool success, ) = _target.call(_callData);
-    if (!success) revert ErrorLibrary.CallFailed();
+    if (!success) revert ErrorLibrary.DecreaseLiquidityFailed();
   }
 
   function _executeSwaps(bytes[] memory _swapCallData) private {

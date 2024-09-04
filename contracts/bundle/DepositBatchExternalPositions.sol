@@ -13,8 +13,6 @@ import { IPositionWrapper } from "../wrappers/abstract/IPositionWrapper.sol";
 import { WrapperFunctionParameters } from "../wrappers/WrapperFunctionParameters.sol";
 import { IAssetManagementConfig } from "../config/assetManagement/IAssetManagementConfig.sol";
 
-import "hardhat/console.sol";
-
 /**
  * @title DepositBatchExternalPositions
  * @notice A contract for performing multi-token swap and deposit operations.
@@ -231,11 +229,6 @@ contract DepositBatchExternalPositions is ReentrancyGuard {
       _depositAmounts[_params._positionWrapperIndex[i]] =
         balanceAfter -
         balanceBefore;
-
-      console.log(
-        "depositAmount wrapper",
-        _depositAmounts[_params._positionWrapperIndex[i]]
-      );
     }
     return _depositAmounts;
   }
@@ -327,9 +320,6 @@ contract DepositBatchExternalPositions is ReentrancyGuard {
       _params._swapTokens[_params._index1[i]],
       address(this)
     );
-
-    console.log("token0DepositAmount", balanceBefore0 - balanceAfter0);
-    console.log("token1DepositAmount", balanceBefore1 - balanceAfter1);
   }
 
   /**

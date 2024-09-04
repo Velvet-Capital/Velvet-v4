@@ -353,7 +353,7 @@ export async function calculateSwapAmountUpdateRange(
 
   const token0 = await positionWrapper.token0();
   const token1 = await positionWrapper.token1();
-  const tokenId = await positionWrapper.tokenId();
+  //const tokenId = await positionWrapper.tokenId();
   /*
 
         Steps:
@@ -426,6 +426,46 @@ export async function calculateSwapAmountUpdateRange(
   swapAmount = (swapAmount * 0.999).toFixed(0);
 
   return { swapAmount, tokenIn, tokenOut };
+}
+
+export async function calculateDepositAmounts(
+  position: string,
+  newTickLower: any,
+  newTickUpper: any,
+  inputAmount: any
+): Promise<any> {
+  const AmountCalculationsAlgebra = await ethers.getContractFactory(
+    "AmountCalculationsAlgebra"
+  );
+  const amountCalculationsAlgebra = await AmountCalculationsAlgebra.deploy();
+  await amountCalculationsAlgebra.deployed();
+
+  // Get amounts for new price range (to calculate the ratio)
+  let amounts =
+    await amountCalculationsAlgebra.callStatic.getRatioAmountsForTicks(
+      position,
+      newTickLower,
+      newTickUpper
+    );
+
+  // Convert amount0, amount1 to USD (here we use stable coins for testing so we can skip)
+
+  // Get the ratios the tokens should be swapped to
+  let ratio0 =
+    Number(BigNumber.from(amounts.amount0)) /
+    Number(
+      BigNumber.from(amounts.amount0).add(BigNumber.from(amounts.amount1))
+    );
+  let ratio1 =
+    Number(BigNumber.from(amounts.amount1)) /
+    Number(
+      BigNumber.from(amounts.amount0).add(BigNumber.from(amounts.amount1))
+    );
+
+  let amount0 = (Number(BigNumber.from(inputAmount)) * ratio0).toFixed(0);
+  let amount1 = (Number(BigNumber.from(inputAmount)) * ratio1).toFixed(0);
+
+  return { amount0, amount1 };
 }
 
 // for deposit/withdraw same as function before but with fee amounts

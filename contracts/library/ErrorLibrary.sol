@@ -183,4 +183,8 @@ library ErrorLibrary {
   error InvalidSwapAmount();
   // @notice Thrown when the passed deviation bps is invalid
   error InvalidDeviationBps();
+  // @notice Thrown when the increase liquidity call fails
+  error IncreaseLiquidityFailed();
+  // @notice Thrown when the decrease liquidity call fails
+  error DecreaseLiquidityFailed();
 }

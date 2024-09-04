@@ -20,6 +20,7 @@ import {
   createEnsoCallData,
   createEnsoCallDataRoute,
   calculateOutputAmounts,
+  calculateDepositAmounts,
 } from "./IntentCalculations";
 
 import { tokenAddresses, IAddresses, priceOracle } from "./Deployments.test";
@@ -85,6 +86,7 @@ describe.only("Tests for Deposit", () => {
   let assetManagementConfig: AssetManagementConfig;
   let positionWrapper: any;
   let positionWrapper2: any;
+  let positionWrapper3: any;
   let nonOwner: SignerWithAddress;
   let depositor1: SignerWithAddress;
   let addr2: SignerWithAddress;
@@ -111,6 +113,7 @@ describe.only("Tests for Deposit", () => {
 
   let position1: any;
   let position2: any;
+  let position3: any;
 
   /// @dev The minimum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**-128
   const MIN_TICK = -887220;
@@ -686,7 +689,7 @@ describe.only("Tests for Deposit", () => {
         await calculateOutputAmounts(position1, "10000");
       });
 
-      it("should rebalance position wrapper token to a ERC20 token", async () => {
+      it("should rebalance from a position wrapper token to a ERC20 token", async () => {
         // initialized tokens
 
         let tokens = await portfolio.getTokens();
@@ -783,6 +786,157 @@ describe.only("Tests for Deposit", () => {
             callDataDecreaseLiquidity,
             [[]],
             [],
+            [sellToken],
+            [buyToken],
+            [0],
+          ]
+        );
+
+        await rebalancing.updateTokens({
+          _newTokens: newTokens,
+          _sellTokens: [sellToken],
+          _sellAmounts: [sellTokenBalance],
+          _handler: ensoHandler.address,
+          _callData: encodedParameters,
+        });
+      });
+
+      it("Create a new position wrapper", async () => {
+        // UniswapV3 position
+        const token0 = iaddress.usdcAddress;
+        const token1 = iaddress.usdtAddress;
+
+        await positionManager.createNewWrapperPosition(
+          token0,
+          token1,
+          "Test",
+          "t",
+          MIN_TICK,
+          MAX_TICK
+        );
+
+        position3 = await positionManager.deployedPositionWrappers(2);
+
+        const PositionWrapper = await ethers.getContractFactory(
+          "PositionWrapper"
+        );
+        positionWrapper3 = PositionWrapper.attach(position3);
+      });
+
+      it("should rebalance from a ERC20 token to a position wrapper token", async () => {
+        // initialized tokens
+
+        let tokens = await portfolio.getTokens();
+        let sellToken = iaddress.usdtAddress;
+        let buyToken = position3;
+
+        let addedPosition = positionWrapper3;
+
+        let token0 = await addedPosition.token0();
+        let token1 = await addedPosition.token1();
+
+        let newTokens = [
+          iaddress.usdcAddress,
+          position2,
+          iaddress.dogeAddress,
+          iaddress.btcAddress,
+          buyToken,
+        ];
+
+        let vault = await portfolio.vault();
+
+        let ERC20 = await ethers.getContractFactory("ERC20Upgradeable");
+        let sellTokenBalance = BigNumber.from(
+          await ERC20.attach(sellToken).balanceOf(vault)
+        ).toString();
+
+        let depositAmounts = await calculateDepositAmounts(
+          buyToken,
+          MIN_TICK,
+          MAX_TICK,
+          sellTokenBalance
+        );
+
+        console.log("sellTokenBalance", sellTokenBalance);
+        let callDataEnso: any = [[]];
+        if (sellToken != token0) {
+          let swapAmount = depositAmounts.amount0;
+          const postResponse0 = await createEnsoCallDataRoute(
+            ensoHandler.address,
+            ensoHandler.address,
+            sellToken,
+            token0,
+            swapAmount
+          );
+          callDataEnso[0].push(postResponse0.data.tx.data);
+        }
+
+        if (sellToken != token1) {
+          let swapAmount = depositAmounts.amount1;
+
+          const postResponse1 = await createEnsoCallDataRoute(
+            ensoHandler.address,
+            ensoHandler.address,
+            sellToken,
+            token1,
+            swapAmount
+          );
+          callDataEnso[0].push(postResponse1.data.tx.data);
+        }
+
+        console.log("calldata enso length", callDataEnso.length);
+
+        const callDataIncreaseLiquidity: any = [[]];
+        // Encode the function call
+        let ABIApprove = ["function approve(address spender, uint256 amount)"];
+        let abiEncodeApprove = new ethers.utils.Interface(ABIApprove);
+        callDataIncreaseLiquidity[0][0] = abiEncodeApprove.encodeFunctionData(
+          "approve",
+          [positionManager.address, sellTokenBalance]
+        );
+
+        callDataIncreaseLiquidity[0][1] = abiEncodeApprove.encodeFunctionData(
+          "approve",
+          [positionManager.address, sellTokenBalance]
+        );
+
+        // Define the ABI with the correct structure of WrapperDepositParams
+        let ABI = [
+          "function initializePositionAndDeposit(address _dustReceiver, address _positionWrapper, (uint256 _amount0Desired, uint256 _amount1Desired, uint256 _amount0Min, uint256 _amount1Min) params)",
+        ];
+
+        let abiEncode = new ethers.utils.Interface(ABI);
+
+        // Encode the initializePositionAndDeposit function call
+        callDataIncreaseLiquidity[0][2] = abiEncode.encodeFunctionData(
+          "initializePositionAndDeposit",
+          [
+            owner.address, // _dustReceiver
+            buyToken, // _positionWrapper
+            {
+              _amount0Desired: (depositAmounts.amount0 * 0.9995).toFixed(0),
+              _amount1Desired: (depositAmounts.amount1 * 0.9995).toFixed(0),
+              _amount0Min: 0,
+              _amount1Min: 0,
+            },
+          ]
+        );
+
+        const encodedParameters = ethers.utils.defaultAbiCoder.encode(
+          [
+            " bytes[][]", // callDataEnso
+            "bytes[]", // callDataDecreaseLiquidity
+            "bytes[][]", // callDataIncreaseLiquidity
+            "address[][]", // increaseLiquidityTarget
+            "address[]", // tokensIn
+            "address[]", // tokens
+            " uint256[]", // minExpectedOutputAmounts
+          ],
+          [
+            callDataEnso,
+            [],
+            callDataIncreaseLiquidity,
+            [[token0, token1, positionManager.address]],
             [sellToken],
             [buyToken],
             [0],
