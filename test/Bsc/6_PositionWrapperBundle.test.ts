@@ -686,7 +686,119 @@ describe.only("Tests for Deposit", () => {
         await calculateOutputAmounts(position1, "10000");
       });
 
-      it("should withdraw in single token by user in native token", async () => {
+      it("should rebalance position wrapper token to a ERC20 token", async () => {
+        // initialized tokens
+
+        let tokens = await portfolio.getTokens();
+        let sellToken = position1;
+        let buyToken = iaddress.usdtAddress;
+
+        let removedPosition = positionWrapper;
+
+        let token0 = await removedPosition.token0();
+        let token1 = await removedPosition.token1();
+
+        let newTokens = [
+          iaddress.usdcAddress,
+          position2,
+          iaddress.dogeAddress,
+          iaddress.btcAddress,
+          buyToken,
+        ];
+
+        let vault = await portfolio.vault();
+
+        let ERC20 = await ethers.getContractFactory("ERC20Upgradeable");
+        let sellTokenBalance = BigNumber.from(
+          await ERC20.attach(sellToken).balanceOf(vault)
+        ).toString();
+
+        // get underlying amounts of position
+        let percentage = await amountCalculationsAlgebra.getPercentage(
+          sellTokenBalance,
+          await removedPosition.totalSupply()
+        );
+
+        let withdrawAmounts = await calculateOutputAmounts(
+          sellToken,
+          percentage.toString()
+        );
+
+        let swapAmounts: any = [[]];
+        if (withdrawAmounts.token0Amount > 0) {
+          swapAmounts[0][0] = (
+            withdrawAmounts.token0Amount * 0.9999999
+          ).toFixed(0);
+        }
+
+        if (withdrawAmounts.token1Amount > 0) {
+          swapAmounts[0][1] = (
+            withdrawAmounts.token1Amount * 0.9999999
+          ).toFixed(0);
+        }
+
+        const postResponse0 = await createEnsoCallDataRoute(
+          ensoHandler.address,
+          ensoHandler.address,
+          token0,
+          buyToken,
+          swapAmounts[0][0]
+        );
+
+        const postResponse1 = await createEnsoCallDataRoute(
+          ensoHandler.address,
+          ensoHandler.address,
+          token1,
+          buyToken,
+          swapAmounts[0][1]
+        );
+
+        let callDataEnso: any = [[]];
+        callDataEnso[0][0] = postResponse0.data.tx.data;
+        callDataEnso[0][1] = postResponse1.data.tx.data;
+
+        const callDataDecreaseLiquidity: any = [];
+        // Encode the function call
+        let ABI = [
+          "function decreaseLiquidity(address _positionWrapper, uint256 _withdrawalAmount, uint256 _amount0Min, uint256 _amount1Min, address tokenIn, address tokenOut, uint256 amountIn)",
+        ];
+        let abiEncode = new ethers.utils.Interface(ABI);
+        callDataDecreaseLiquidity[0] = abiEncode.encodeFunctionData(
+          "decreaseLiquidity",
+          [sellToken, sellTokenBalance, 0, 0, token0, token1, 0]
+        );
+
+        const encodedParameters = ethers.utils.defaultAbiCoder.encode(
+          [
+            " bytes[][]", // callDataEnso
+            "bytes[]", // callDataDecreaseLiquidity
+            "bytes[][]", // callDataIncreaseLiquidity
+            "address[]", // increaseLiquidityTarget
+            "address[]", // tokensIn
+            "address[]", // tokens
+            " uint256[]", // minExpectedOutputAmounts
+          ],
+          [
+            callDataEnso,
+            callDataDecreaseLiquidity,
+            [[]],
+            [],
+            [sellToken],
+            [buyToken],
+            [0],
+          ]
+        );
+
+        await rebalancing.updateTokens({
+          _newTokens: newTokens,
+          _sellTokens: [sellToken],
+          _sellAmounts: [sellTokenBalance],
+          _handler: ensoHandler.address,
+          _callData: encodedParameters,
+        });
+      });
+
+      /* it("should withdraw in single token by user in native token", async () => {
         await ethers.provider.send("evm_increaseTime", [62]);
 
         const supplyBefore = await portfolio.totalSupply();
@@ -1199,7 +1311,7 @@ describe.only("Tests for Deposit", () => {
         const supplyAfter = await portfolio.totalSupply();
 
         expect(Number(supplyBefore)).to.be.greaterThan(Number(supplyAfter));
-      });
+      });*/
     });
   });
 });

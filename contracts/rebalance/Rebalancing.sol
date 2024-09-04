@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/security/ReentrancyGuardUpgradeable.sol";
-import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/proxy/utils/UUPSUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/access/OwnableUpgradeable.sol";
-import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/interfaces/IERC20Upgradeable.sol";
-import {ErrorLibrary} from "../library/ErrorLibrary.sol";
-import {IIntentHandler} from "../handler/IIntentHandler.sol";
-import {RebalancingConfig} from "./RebalancingConfig.sol";
+import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable-4.9.6/security/ReentrancyGuardUpgradeable.sol";
+import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable-4.9.6/proxy/utils/UUPSUpgradeable.sol";
+import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable-4.9.6/access/OwnableUpgradeable.sol";
+import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-4.9.6/interfaces/IERC20Upgradeable.sol";
+import { ErrorLibrary } from "../library/ErrorLibrary.sol";
+import { IIntentHandler } from "../handler/IIntentHandler.sol";
+import { RebalancingConfig } from "./RebalancingConfig.sol";
+import { IPositionManager } from "../wrappers/abstract/IPositionManager.sol";
 
-import {FunctionParameters} from "../FunctionParameters.sol";
+import { FunctionParameters } from "../FunctionParameters.sol";
 
 /**
  * @title RebalancingCore
@@ -114,7 +115,13 @@ contract Rebalancing is
 
     // Execute the swap using the handler.
     address[] memory ensoBuyTokens = IIntentHandler(_handler)
-      .multiTokenSwapAndTransfer(_vault, _callData);
+      .multiTokenSwapAndTransferRebalance(
+        FunctionParameters.EnsoRebalanceParams(
+          IPositionManager(assetManagementConfig.positionManager()),
+          _vault,
+          _callData
+        )
+      );
 
     // Verify that all specified sell tokens have been completely sold by the handler.
     for (uint256 i; i < sellTokenLength; i++) {
