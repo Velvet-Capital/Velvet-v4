@@ -76,6 +76,18 @@ abstract contract PositionManagerAbstract is
     _;
   }
 
+  modifier notEmergencyPaused() {
+    if (IProtocolConfig(protocolConfig).isProtocolEmergencyPaused())
+      revert ErrorLibrary.ProtocolEmergencyPaused();
+    _;
+  }
+
+  modifier notPaused() {
+    if (IProtocolConfig(protocolConfig).isProtocolPaused())
+      revert ErrorLibrary.ProtocolIsPaused();
+    _;
+  }
+
   /// @custom:oz-upgrades-unsafe-allow constructor
   constructor() {
     _disableInitializers();
@@ -111,7 +123,7 @@ abstract contract PositionManagerAbstract is
    */
   function increaseLiquidity(
     WrapperFunctionParameters.WrapperDepositParams memory _params
-  ) external nonReentrant {
+  ) external notPaused nonReentrant {
     uint256 tokenId = _params._positionWrapper.tokenId();
 
     address token0 = _params._positionWrapper.token0();
@@ -204,7 +216,7 @@ abstract contract PositionManagerAbstract is
     address tokenIn,
     address tokenOut,
     uint256 amountIn
-  ) external nonReentrant {
+  ) external notEmergencyPaused nonReentrant {
     uint256 tokenId = _positionWrapper.tokenId();
 
     // Ensure the withdrawal amount is greater than zero.

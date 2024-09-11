@@ -1047,7 +1047,7 @@ describe.only("Tests for Deposit", () => {
         expect(totalSupplyAfter).to.be.equals(totalSupplyBefore);
       });
 
-      it("should withdraw in multitoken by nonwOwner", async () => {
+      it("should withdraw in multitoken by nonOwner", async () => {
         await ethers.provider.send("evm_increaseTime", [70]);
 
         const supplyBefore = await portfolio.totalSupply();

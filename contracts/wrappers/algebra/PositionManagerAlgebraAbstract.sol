@@ -59,7 +59,7 @@ abstract contract PositionManagerAbstractAlgebra is PositionManagerAbstract {
     string memory _name,
     string memory _symbol,
     WrapperFunctionParameters.PositionMintParamsThena memory params
-  ) external nonReentrant returns (address) {
+  ) external notPaused nonReentrant returns (address) {
     // Create and initialize a new wrapper position
     IPositionWrapper positionWrapper = createNewWrapperPosition(
       _token0,
@@ -87,7 +87,7 @@ abstract contract PositionManagerAbstractAlgebra is PositionManagerAbstract {
     address _dustReceiver,
     IPositionWrapper _positionWrapper,
     WrapperFunctionParameters.InitialMintParams memory params
-  ) external nonReentrant {
+  ) external notPaused nonReentrant {
     // Mint the new Algebra V3 position using the provided liquidity parameters.
     _initializePositionAndDeposit(
       _dustReceiver,
@@ -121,7 +121,7 @@ abstract contract PositionManagerAbstractAlgebra is PositionManagerAbstract {
     uint256 _underlyingAmountOut1,
     int24 _tickLower,
     int24 _tickUpper
-  ) external onlyAssetManager {
+  ) external notPaused onlyAssetManager {
     uint256 tokenId = _positionWrapper.tokenId();
     address token0 = _positionWrapper.token0();
     address token1 = _positionWrapper.token1();
@@ -188,7 +188,7 @@ abstract contract PositionManagerAbstractAlgebra is PositionManagerAbstract {
     string memory _symbol,
     int24 _tickLower,
     int24 _tickUpper
-  ) public onlyAssetManager returns (IPositionWrapper) {
+  ) public notPaused onlyAssetManager returns (IPositionWrapper) {
     // Check if both tokens are whitelisted if the token whitelisting feature is enabled.
     if (
       assetManagementConfig.tokenWhitelistingEnabled() &&
@@ -255,6 +255,12 @@ abstract contract PositionManagerAbstractAlgebra is PositionManagerAbstract {
       params._amount1Desired
     );
 
+    uint256 balance0After = IERC20Upgradeable(token0).balanceOf(address(this));
+    uint256 balance1After = IERC20Upgradeable(token1).balanceOf(address(this));
+
+    params._amount0Desired = balance0After - balance0Before;
+    params._amount1Desired = balance1After - balance1Before;
+
     // Mint the new Uniswap V3 position using the provided liquidity parameters.
     (uint256 tokenId, uint128 liquidity) = _mintNewUniswapPosition(
       _positionWrapper,
@@ -268,8 +274,8 @@ abstract contract PositionManagerAbstractAlgebra is PositionManagerAbstract {
     _positionWrapper.mint(msg.sender, liquidity);
 
     // Calculate the difference in token balances to determine dust.
-    uint256 balance0After = IERC20Upgradeable(token0).balanceOf(address(this));
-    uint256 balance1After = IERC20Upgradeable(token1).balanceOf(address(this));
+    balance0After = IERC20Upgradeable(token0).balanceOf(address(this));
+    balance1After = IERC20Upgradeable(token1).balanceOf(address(this));
 
     // Return any excess tokens (dust) that weren't used in liquidity addition back to the sender.
     _returnDust(

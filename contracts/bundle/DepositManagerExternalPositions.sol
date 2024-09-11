@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import {TransferHelper} from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
-import {FunctionParameters} from "../FunctionParameters.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import {IDepositBatchExternalPositions} from "./IDepositBatchExternalPositions.sol";
+import { TransferHelper } from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
+import { FunctionParameters } from "../FunctionParameters.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import { IDepositBatchExternalPositions } from "./IDepositBatchExternalPositions.sol";
+import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
 /**
  * @title DepositManagerExternalPositions
