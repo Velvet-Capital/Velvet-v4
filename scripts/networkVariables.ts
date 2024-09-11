@@ -47,6 +47,7 @@ export const BSCMainNet: ChainAddresses = {
   PancakeSwapV2RouterAddress: "0x10ED43C718714eb63d5aA57B78B54704E256024E",
   PancakeSwapV2FactoryAddress: "0xca143ce32fe78f1f7019d7d551a6402fc5350c73",
   WETH_Address: "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
+  WETH: "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c",
   BUSD: "0xe9e7CEA3DedcA5984780Bafc599bD69ADd087D56",
   USDT: "0x55d398326f99059fF775485246999027B3197955",
   ADA: "0x3EE2200Efb3400fAbB9AacF31297cBdD1d435D47",
