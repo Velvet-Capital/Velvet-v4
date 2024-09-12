@@ -5,29 +5,14 @@ import { ethers, upgrades } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 
 import {
-  PERMIT2_ADDRESS,
-  AllowanceTransfer,
-  MaxAllowanceTransferAmount,
-  PermitBatch,
-} from "@uniswap/Permit2-sdk";
-
-import {
-  calcuateExpectedMintAmount,
-  createEnsoDataElement,
-} from "../calculations/DepositCalculations.test";
-
-import {
-  createEnsoCallData,
   createEnsoCallDataRoute,
   calculateOutputAmounts,
-  calculateDepositAmounts,
 } from "./IntentCalculations";
 
 import { tokenAddresses, IAddresses, priceOracle } from "./Deployments.test";
 
 import {
   Portfolio__factory,
-  AssetManagementConfig,
   AmountCalculationsAlgebra,
   EnsoHandler,
   UniswapV2Handler,
@@ -41,6 +26,8 @@ const axios = require("axios");
 const qs = require("qs");
 //use default BigNumber
 chai.use(require("chai-bignumber")());
+
+const zeroAddress = "0x0000000000000000000000000000000000000000";
 
 describe.only("Tests for Deposit", () => {
   let accounts;
@@ -56,6 +43,11 @@ describe.only("Tests for Deposit", () => {
   let positionWrapper: any;
   let positionWrapper2: any;
   let addrs: SignerWithAddress[];
+  let depositBatch: any;
+  let depositManager: any;
+  let portfolioCalculations: any;
+  let withdrawManager: any;
+  let withdrawBatch: any;
 
   let amountCalculationsAlgebra: AmountCalculationsAlgebra;
 
@@ -133,6 +125,16 @@ describe.only("Tests for Deposit", () => {
       const portfolioFactory = await PortfolioFactory.attach(
         "todo_put_address"
       );
+      const DepositBatchExternalPositions = await ethers.getContractFactory(
+        "DepositBatchExternalPositions"
+      );
+      depositBatch = await DepositBatchExternalPositions.deploy();
+
+      const DepositManager = await ethers.getContractFactory(
+        "DepositManagerExternalPositions"
+      );
+      depositManager = await DepositManager.deploy(depositBatch.address);
+
       const portfolioFactoryCreate =
         await portfolioFactory.createPortfolioNonCustodial({
           _name: "PORTFOLIOLY",
@@ -172,6 +174,37 @@ describe.only("Tests for Deposit", () => {
         "PositionManagerThena"
       );
       const positionManager = PositionManager.attach(positionManagerAddress);
+
+      const WithdrawManager = await ethers.getContractFactory(
+        "WithdrawManagerExternalPositions"
+      );
+      withdrawManager = await WithdrawManager.deploy();
+
+      const WithdrawBatch = await ethers.getContractFactory(
+        "WithdrawBatchExternalPositions"
+      );
+      withdrawBatch = await WithdrawBatch.deploy();
+
+      await withdrawManager.initialize(
+        withdrawBatch.address,
+        portfolioFactory.address
+      );
+
+      const TokenBalanceLibrary = await ethers.getContractFactory(
+        "TokenBalanceLibrary"
+      );
+      const tokenBalanceLibrary = await TokenBalanceLibrary.deploy();
+      await tokenBalanceLibrary.deployed();
+
+      const PortfolioCalculations = await ethers.getContractFactory(
+        "PortfolioCalculations",
+        {
+          libraries: {
+            TokenBalanceLibrary: tokenBalanceLibrary.address,
+          },
+        }
+      );
+      portfolioCalculations = await PortfolioCalculations.deploy();
     });
 
     describe("Test Cases", function () {
@@ -416,6 +449,127 @@ describe.only("Tests for Deposit", () => {
           _handler: ensoHandler.address,
           _callData: encodedParameters,
         });
+      });
+
+      it("should withdraw in single token by user in native token", async () => {
+        await ethers.provider.send("evm_increaseTime", [62]);
+
+        const supplyBefore = await portfolio.totalSupply();
+        const user = owner;
+        const tokenToSwapInto = "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+
+        let responses = [];
+
+        const amountPortfolioToken = BigNumber.from(
+          await portfolio.balanceOf(user.address)
+        );
+
+        const ERC20 = await ethers.getContractFactory("ERC20Upgradeable");
+        const balanceBefore = await provider.getBalance(user.address);
+        const tokens = await portfolio.getTokens();
+
+        let withdrawalAmounts =
+          await portfolioCalculations.getWithdrawalAmounts(
+            amountPortfolioToken,
+            portfolio.address
+          );
+
+        let swapAmounts = [];
+        let wrapperIndex = 0;
+        for (let i = 0; i < tokens.length; i++) {
+          // only push one amount
+          if (!isTokenExternalPosition[i]) {
+            swapAmounts.push(withdrawalAmounts[i]);
+          } else {
+            const PositionWrapper = await ethers.getContractFactory(
+              "PositionWrapper"
+            );
+            const positionWrapperCurrent = PositionWrapper.attach(
+              positionWrappers[wrapperIndex]
+            );
+            let percentage = await amountCalculationsAlgebra.getPercentage(
+              withdrawalAmounts[i],
+              await positionWrapperCurrent.totalSupply()
+            );
+
+            let withdrawAmounts = await calculateOutputAmounts(
+              tokens[i],
+              percentage.toString()
+            );
+            if (withdrawAmounts.token0Amount > 0) {
+              swapAmounts.push(
+                (withdrawAmounts.token0Amount * 0.9999999).toFixed(0)
+              );
+            }
+            if (withdrawAmounts.token1Amount > 0) {
+              swapAmounts.push(
+                (withdrawAmounts.token1Amount * 0.9999999).toFixed(0)
+              );
+            }
+            wrapperIndex++;
+          }
+        }
+
+        await portfolio.approve(
+          withdrawManager.address,
+          BigNumber.from(amountPortfolioToken)
+        );
+
+        for (let i = 0; i < swapTokens.length; i++) {
+          if (swapTokens[i] == tokenToSwapInto) {
+            responses.push("0x");
+          } else {
+            let response = await createEnsoCallDataRoute(
+              withdrawBatch.address,
+              user.address,
+              swapTokens[i],
+              tokenToSwapInto,
+              (swapAmounts[i] * 0.9999999).toFixed(0)
+            );
+            responses.push(response.data.tx.data);
+          }
+        }
+
+        let balanceBeforeETH = await owner.getBalance();
+
+        /*
+    FunctionParameters.withdrawRepayParams calldata repayData,
+    FunctionParameters.ExternalPositionWithdrawParams memory _params*/
+
+        await withdrawManager.withdraw(
+          swapTokens,
+          portfolio.address,
+          tokenToSwapInto,
+          amountPortfolioToken,
+          responses,
+          {
+            _factory: zeroAddress,
+            _token0: zeroAddress,
+            _token1: zeroAddress,
+            _flashLoanToken: zeroAddress,
+            _solverHandler: zeroAddress,
+            _flashLoanAmount: [0],
+            firstSwapData: ["0x"],
+            secondSwapData: ["0x"],
+          },
+          {
+            _positionWrappers: positionWrappers,
+            _amountsMin0: [0, 0],
+            _amountsMin1: [0, 0],
+            _tokenIn: ZERO_ADDRESS,
+            _tokenOut: ZERO_ADDRESS,
+            _amountIn: "0",
+          }
+        );
+
+        let balanceAfterETH = await owner.getBalance();
+
+        const supplyAfter = await portfolio.totalSupply();
+
+        const balanceAfter = await provider.getBalance(user.address);
+
+        expect(Number(balanceAfter)).to.be.greaterThan(Number(balanceBefore));
+        expect(Number(supplyBefore)).to.be.greaterThan(Number(supplyAfter));
       });
     });
   });

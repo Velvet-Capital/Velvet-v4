@@ -201,7 +201,7 @@ async function main() {
     address: positionManagerThena.address,
   });
 
-  const DepositBatch = await ethers.getContractFactory("DepositBatch");
+  /*const DepositBatch = await ethers.getContractFactory("DepositBatch");
   const depositBatch = await DepositBatch.deploy();
 
   console.log("depositBatch address:", depositBatch.address);
@@ -248,7 +248,7 @@ async function main() {
   await tenderly.verify({
     name: "PortfolioCalculations",
     address: portfolioCalculations.address,
-  });
+  });*/
 
   console.log(
     "------------------------------ Deployment Ended ------------------------------"
@@ -286,7 +286,9 @@ async function main() {
 
   console.log("portfolioFactory address:", portfolioFactory.address);
 
-  const WithdrawManager = await ethers.getContractFactory("WithdrawManager");
+  /*const WithdrawManager = await ethers.getContractFactory(
+    "WithdrawManagerExternalPositions"
+  );
   const withdrawManager = await WithdrawManager.deploy();
 
   console.log("withdrawManager address:", withdrawManager.address);
@@ -299,7 +301,7 @@ async function main() {
   await withdrawManager.initialize(
     withdrawBatch.address,
     portfolioFactory.address
-  );
+  );*/
 }
 
 // We recommend this pattern to be able to use async/await everywhere
