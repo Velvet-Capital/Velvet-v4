@@ -115,6 +115,7 @@ const config: HardhatUserConfig = {
       },
       chainId: chainIds["bscMainnet"],
       url: "https://bsc-dataseed.binance.org/",
+      gasPrice: 5000000000,
     },
     MaticTestnet: {
       accounts: {
@@ -202,11 +203,11 @@ const config: HardhatUserConfig = {
     ],
     spacing: 2,
   },
-  tenderly: {
+  /*tenderly: {
     project: "Base10April",
     username: "velvet-capital",
     privateVerification: true,
-  },
+  },*/
 };
 
 module.exports = config;

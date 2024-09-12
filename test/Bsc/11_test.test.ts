@@ -5,18 +5,42 @@ import { ethers, upgrades } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 
 import {
+  createEnsoCallData,
   createEnsoCallDataRoute,
   calculateOutputAmounts,
+  calculateDepositAmounts,
 } from "./IntentCalculations";
 
-import { tokenAddresses, IAddresses, priceOracle } from "./Deployments.test";
+import { tokenAddresses, IAddresses } from "./Deployments.test";
 
 import {
+  Portfolio,
   Portfolio__factory,
-  AmountCalculationsAlgebra,
-  EnsoHandler,
+  ProtocolConfig,
+  Rebalancing__factory,
+  PortfolioFactory,
   UniswapV2Handler,
+  VelvetSafeModule,
+  FeeModule,
+  FeeModule__factory,
+  EnsoHandler,
+  TokenBalanceLibrary,
+  BorrowManager,
+  EnsoHandlerBundled,
+  AccessController__factory,
+  TokenExclusionManager__factory,
+  DepositBatch,
+  DepositManager,
+  WithdrawBatchExternalPositions,
+  WithdrawManagerExternalPositions,
+  DepositBatchExternalPositions,
+  DepositManagerExternalPositions,
   PositionManagerThena,
+  AssetManagementConfig,
+  AmountCalculationsAlgebra,
+  IFactory__factory,
+  INonfungiblePositionManager__factory,
+  IPool__factory,
 } from "../../typechain";
 
 import { chainIdToAddresses } from "../../scripts/networkVariables";
@@ -32,22 +56,44 @@ const zeroAddress = "0x0000000000000000000000000000000000000000";
 describe.only("Tests for Deposit", () => {
   let accounts;
   let iaddress: IAddresses;
+  let vaultAddress: string;
+  let velvetSafeModule: VelvetSafeModule;
   let portfolio: any;
+  let portfolio1: any;
+  let portfolioCalculations: any;
+  let tokenExclusionManager: any;
+  let tokenExclusionManager1: any;
   let ensoHandler: EnsoHandler;
+  let borrowManager: BorrowManager;
+  let tokenBalanceLibrary: TokenBalanceLibrary;
+  let depositBatch: DepositBatchExternalPositions;
+  let depositManager: DepositManagerExternalPositions;
+  let withdrawBatch: WithdrawBatchExternalPositions;
+  let withdrawManager: WithdrawManagerExternalPositions;
+  let portfolioContract: Portfolio;
+  let portfolioFactory: PortfolioFactory;
   let swapHandler: UniswapV2Handler;
   let rebalancing: any;
+  let rebalancing1: any;
+  let protocolConfig: ProtocolConfig;
+  let fakePortfolio: Portfolio;
+  let txObject;
   let owner: SignerWithAddress;
   let treasury: SignerWithAddress;
   let _assetManagerTreasury: SignerWithAddress;
   let positionManager: PositionManagerThena;
+  let assetManagementConfig: AssetManagementConfig;
   let positionWrapper: any;
   let positionWrapper2: any;
+  let positionWrapper3: any;
+  let nonOwner: SignerWithAddress;
+  let depositor1: SignerWithAddress;
+  let addr2: SignerWithAddress;
+  let addr1: SignerWithAddress;
   let addrs: SignerWithAddress[];
-  let depositBatch: any;
-  let depositManager: any;
-  let portfolioCalculations: any;
-  let withdrawManager: any;
-  let withdrawBatch: any;
+  let feeModule0: FeeModule;
+
+  let priceOracle: any;
 
   let amountCalculationsAlgebra: AmountCalculationsAlgebra;
 
@@ -83,13 +129,6 @@ describe.only("Tests for Deposit", () => {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
   describe.only("Tests for Deposit", () => {
-    let owner: SignerWithAddress;
-    let treasury: SignerWithAddress;
-    let depositor1: SignerWithAddress;
-    let nonOwner: SignerWithAddress;
-    let addr1: SignerWithAddress;
-    let addr2: SignerWithAddress;
-
     before(async () => {
       accounts = await ethers.getSigners();
       [
@@ -103,54 +142,74 @@ describe.only("Tests for Deposit", () => {
         ...addrs
       ] = accounts;
 
-      const forkChainId: any = process.env.CHAIN_ID;
-      const chainId: any = forkChainId ? forkChainId : 56;
-      const addresses = chainIdToAddresses[chainId];
-
-      let position1: any;
-      let position2: any;
-
-      let positionWrapper: any;
-      let positionWrapper2: any;
-      /// @dev The minimum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**-128
-      const MIN_TICK = -887220;
-      /// @dev The maximum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**128
-      const MAX_TICK = 887220;
-
-      // Create new portfolio
-      const PriceOracle = await ethers.getContractFactory("PriceOracle");
-      const priceOracle = await PriceOracle.attach(
-        "0x62228b60fa883E23A8F85e6F5362be51c4C0a359"
-      );
-
-      const EnsoHandler = await ethers.getContractFactory("EnsoHandler");
-      const ensoHandler = await EnsoHandler.attach(
-        "0x854554ce1db7615887cC91b19a7AF633e469c282"
-      );
-
-      console.log("ensoHandler address:", ensoHandler.address);
+      const provider = ethers.getDefaultProvider();
 
       const TokenBalanceLibrary = await ethers.getContractFactory(
         "TokenBalanceLibrary"
       );
-      const tokenBalanceLibrary = await TokenBalanceLibrary.deploy();
+
+      tokenBalanceLibrary = await TokenBalanceLibrary.deploy();
       await tokenBalanceLibrary.deployed();
+
+      iaddress = await tokenAddresses();
+
+      const PriceOracle = await ethers.getContractFactory("PriceOracle");
+      priceOracle = await PriceOracle.attach(
+        "0x62228b60fa883E23A8F85e6F5362be51c4C0a359"
+      );
+
+      const EnsoHandler = await ethers.getContractFactory("EnsoHandler");
+      ensoHandler = await EnsoHandler.attach(
+        "0x854554ce1db7615887cC91b19a7AF633e469c282"
+      );
+
+      const DepositBatch = await ethers.getContractFactory(
+        "DepositBatchExternalPositions"
+      );
+      depositBatch = await DepositBatch.deploy();
+      await depositBatch.deployed();
+
+      const DepositManager = await ethers.getContractFactory(
+        "DepositManagerExternalPositions"
+      );
+      depositManager = await DepositManager.deploy(depositBatch.address);
+      await depositManager.deployed();
+
+      const WithdrawBatch = await ethers.getContractFactory(
+        "WithdrawBatchExternalPositions"
+      );
+      withdrawBatch = await WithdrawBatch.deploy();
+      await withdrawBatch.deployed();
+
+      const WithdrawManager = await ethers.getContractFactory(
+        "WithdrawManagerExternalPositions"
+      );
+      withdrawManager = await WithdrawManager.deploy();
+      await withdrawManager.deployed();
 
       const PositionWrapper = await ethers.getContractFactory(
         "PositionWrapper"
       );
-      const positionWrapperBase = await PositionWrapper.deploy();
-      await positionWrapperBase.deployed();
+      const positionWrapperBaseAddress = await PositionWrapper.deploy();
+      await positionWrapperBaseAddress.deployed();
+
+      const BorrowManager = await ethers.getContractFactory("BorrowManager");
+      borrowManager = await BorrowManager.deploy();
+      await borrowManager.deployed();
 
       const ProtocolConfig = await ethers.getContractFactory("ProtocolConfig");
-      const protocolConfig = ProtocolConfig.attach(
-        "0x6CD9E1FfC17ef0F68f370b8B1E7A33b34970d359"
+      const _protocolConfig = await upgrades.deployProxy(
+        ProtocolConfig,
+        [
+          treasury.address,
+          priceOracle.address,
+          positionWrapperBaseAddress.address,
+        ],
+        { kind: "uups" }
       );
 
-      console.log("protocolConfig address:", protocolConfig.address);
-
-      await protocolConfig.setCoolDownPeriod("60");
-
+      protocolConfig = ProtocolConfig.attach(_protocolConfig.address);
+      await protocolConfig.setCoolDownPeriod("70");
       await protocolConfig.enableSolverHandler(ensoHandler.address);
 
       const Rebalancing = await ethers.getContractFactory("Rebalancing", {
@@ -158,46 +217,58 @@ describe.only("Tests for Deposit", () => {
           TokenBalanceLibrary: tokenBalanceLibrary.address,
         },
       });
-      const rebalancingDefault = await Rebalancing.attach(
+      const rebalancingDefult = await Rebalancing.attach(
         "0xEBfB0fd819A2818177869Aa744965020e3FDCF21"
       );
 
-      const AssetManagementConfigBase = await ethers.getContractFactory(
+      const AssetManagementConfig = await ethers.getContractFactory(
         "AssetManagementConfig"
       );
-      const assetManagementConfigBase = await AssetManagementConfigBase.attach(
+      const assetManagementConfigBase = await AssetManagementConfig.attach(
         "0x242984CD61a0b43983E6D3394F926dcD2B8C9109"
       );
+
+      const TokenExclusionManager = await ethers.getContractFactory(
+        "TokenExclusionManager"
+      );
+      const tokenExclusionManagerDefault = await TokenExclusionManager.deploy();
+      await tokenExclusionManagerDefault.deployed();
 
       const Portfolio = await ethers.getContractFactory("Portfolio", {
         libraries: {
           TokenBalanceLibrary: tokenBalanceLibrary.address,
         },
       });
-      const portfolioContract = await Portfolio.attach(
+      portfolioContract = await Portfolio.attach(
         "0x017E7c4E727a6f705d869Fb571FC991e0D74aa87"
       );
+      const PancakeSwapHandler = await ethers.getContractFactory(
+        "UniswapV2Handler"
+      );
+      swapHandler = await PancakeSwapHandler.deploy();
+      await swapHandler.deployed();
+
+      swapHandler.init(addresses.PancakeSwapRouterAddress);
+
+      let whitelistedTokens: any = [];
+
+      let whitelist = [owner.address];
+
+      const PositionManager = await ethers.getContractFactory(
+        "PositionManagerThena"
+      );
+      const positionManagerBaseAddress = await PositionManager.deploy();
+      await positionManagerBaseAddress.deployed();
+
+      const AmountCalculationsAlgebra = await ethers.getContractFactory(
+        "AmountCalculationsAlgebra"
+      );
+      amountCalculationsAlgebra = await AmountCalculationsAlgebra.deploy();
+      await amountCalculationsAlgebra.deployed();
 
       const FeeModule = await ethers.getContractFactory("FeeModule");
       const feeModule = await FeeModule.attach(
         "0xA15B283C2A5a75A41a8F06288B9D65CA012dae47"
-      );
-
-      const VelvetSafeModule = await ethers.getContractFactory(
-        "VelvetSafeModule"
-      );
-      const velvetSafeModule = await VelvetSafeModule.attach(
-        "0xc3019e341c06bb4d53d788274847985496b93fda"
-      );
-
-      const TokenExclusionManager = await ethers.getContractFactory(
-        "TokenExclusionManager"
-      );
-      const tokenExclusionManager = await TokenExclusionManager.deploy();
-
-      console.log(
-        "tokenExclusionManager address:",
-        tokenExclusionManager.address
       );
 
       const TokenRemovalVault = await ethers.getContractFactory(
@@ -206,25 +277,14 @@ describe.only("Tests for Deposit", () => {
       const tokenRemovalVault = await TokenRemovalVault.deploy();
       await tokenRemovalVault.deployed();
 
-      console.log("tokenRemovalVault address:", tokenRemovalVault.address);
+      fakePortfolio = await Portfolio.deploy();
+      await fakePortfolio.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManager");
-      const borrowManager = await BorrowManager.deploy();
-      await borrowManager.deployed();
-
-      console.log("BorrowManager address:", borrowManager.address);
-
-      const PositionManagerThena = await ethers.getContractFactory(
-        "PositionManagerThena"
+      const VelvetSafeModule = await ethers.getContractFactory(
+        "VelvetSafeModule"
       );
-      const positionManagerThena = await PositionManagerThena.deploy();
-      await positionManagerThena.deployed();
-
-      console.log("positionManager address:", positionManagerThena.address);
-
-      console.log(
-        "------------------------------ Deployment Ended ------------------------------"
-      );
+      velvetSafeModule = await VelvetSafeModule.deploy();
+      await velvetSafeModule.deployed();
 
       const PortfolioFactory = await ethers.getContractFactory(
         "PortfolioFactory"
@@ -234,17 +294,17 @@ describe.only("Tests for Deposit", () => {
         PortfolioFactory,
         [
           {
-            _outAsset: addresses.WETH,
             _basePortfolioAddress: portfolioContract.address,
-            _baseTokenExclusionManagerAddress: tokenExclusionManager.address,
-            _baseRebalancingAddres: rebalancingDefault.address,
+            _baseTokenExclusionManagerAddress:
+              tokenExclusionManagerDefault.address,
+            _baseRebalancingAddres: rebalancingDefult.address,
             _baseAssetManagementConfigAddress:
               assetManagementConfigBase.address,
             _feeModuleImplementationAddress: feeModule.address,
             _baseTokenRemovalVaultImplementation: tokenRemovalVault.address,
             _baseVelvetGnosisSafeModuleAddress: velvetSafeModule.address,
             _baseBorrowManager: borrowManager.address,
-            _basePositionManager: positionManagerThena.address,
+            _basePositionManager: positionManagerBaseAddress.address,
             _gnosisSingleton: addresses.gnosisSingleton,
             _gnosisFallbackLibrary: addresses.gnosisFallbackLibrary,
             _gnosisMultisendLibrary: addresses.gnosisMultisendLibrary,
@@ -255,19 +315,16 @@ describe.only("Tests for Deposit", () => {
         { kind: "uups" }
       );
 
-      const portfolioFactory = PortfolioFactory.attach(
+      portfolioFactory = PortfolioFactory.attach(
         portfolioFactoryInstance.address
       );
-      const DepositBatchExternalPositions = await ethers.getContractFactory(
-        "DepositBatchExternalPositions"
-      );
-      depositBatch = await DepositBatchExternalPositions.deploy();
 
-      const DepositManager = await ethers.getContractFactory(
-        "DepositManagerExternalPositions"
+      await withdrawManager.initialize(
+        withdrawBatch.address,
+        portfolioFactory.address
       );
-      depositManager = await DepositManager.deploy(depositBatch.address);
 
+      console.log("portfolioFactory address:", portfolioFactory.address);
       const portfolioFactoryCreate =
         await portfolioFactory.createPortfolioNonCustodial({
           _name: "PORTFOLIOLY",
@@ -278,8 +335,8 @@ describe.only("Tests for Deposit", () => {
           _exitFee: "0",
           _initialPortfolioAmount: "100000000000000000000",
           _minPortfolioTokenHoldingAmount: "10000000000000000",
-          _assetManagerTreasury: treasury.address,
-          _whitelistedTokens: [],
+          _assetManagerTreasury: _assetManagerTreasury.address,
+          _whitelistedTokens: whitelistedTokens,
           _public: true,
           _transferable: true,
           _transferableToPublic: true,
@@ -287,42 +344,13 @@ describe.only("Tests for Deposit", () => {
           _externalPositionManagementWhitelisted: true,
         });
 
-      // Setup
       const portfolioAddress = await portfolioFactory.getPortfolioList(0);
-      const portfolio = await ethers.getContractAt(
+      const portfolioInfo = await portfolioFactory.PortfolioInfolList(0);
+
+      portfolio = await ethers.getContractAt(
         Portfolio__factory.abi,
         portfolioAddress
       );
-
-      const config = await portfolio.assetManagementConfig();
-      const AssetManagementConfig = await ethers.getContractFactory(
-        "AssetManagementConfig"
-      );
-      const assetManagementConfig = AssetManagementConfig.attach(config);
-      await assetManagementConfig.enableUniSwapV3Manager();
-
-      let positionManagerAddress =
-        await assetManagementConfig.positionManager();
-      const PositionManager = await ethers.getContractFactory(
-        "PositionManagerThena"
-      );
-      const positionManager = PositionManager.attach(positionManagerAddress);
-
-      const WithdrawManager = await ethers.getContractFactory(
-        "WithdrawManagerExternalPositions"
-      );
-      withdrawManager = await WithdrawManager.deploy();
-
-      const WithdrawBatch = await ethers.getContractFactory(
-        "WithdrawBatchExternalPositions"
-      );
-      withdrawBatch = await WithdrawBatch.deploy();
-
-      await withdrawManager.initialize(
-        withdrawBatch.address,
-        portfolioFactory.address
-      );
-
       const PortfolioCalculations = await ethers.getContractFactory(
         "PortfolioCalculations",
         {
@@ -331,10 +359,35 @@ describe.only("Tests for Deposit", () => {
           },
         }
       );
+      feeModule0 = FeeModule.attach(await portfolio.feeModule());
       portfolioCalculations = await PortfolioCalculations.deploy();
+      await portfolioCalculations.deployed();
+
+      rebalancing = await ethers.getContractAt(
+        Rebalancing__factory.abi,
+        portfolioInfo.rebalancing
+      );
+
+      tokenExclusionManager = await ethers.getContractAt(
+        TokenExclusionManager__factory.abi,
+        portfolioInfo.tokenExclusionManager
+      );
+
+      const config = await portfolio.assetManagementConfig();
+
+      assetManagementConfig = AssetManagementConfig.attach(config);
+
+      await assetManagementConfig.enableUniSwapV3Manager();
+
+      let positionManagerAddress =
+        await assetManagementConfig.positionManager();
+
+      positionManager = PositionManager.attach(positionManagerAddress);
+
+      console.log("portfolio deployed to:", portfolio.address);
     });
 
-    describe("Test Cases", function () {
+    describe("Deposit Tests", function () {
       it("should create new position", async () => {
         // UniswapV3 position
         const token0 = iaddress.ethAddress;
@@ -453,6 +506,9 @@ describe.only("Tests for Deposit", () => {
           }
         );
 
+        const receipt = await data.wait();
+        console.log("Transaction ID:", receipt.transactionHash);
+
         let balanceAfterETH = await owner.getBalance();
 
         const userShare =
@@ -510,6 +566,9 @@ describe.only("Tests for Deposit", () => {
             value: "20000000000000000",
           }
         );
+
+        const receipt = await data.wait();
+        console.log("Transaction ID:", receipt.transactionHash);
 
         let balanceAfterETH = await owner.getBalance();
 
@@ -643,13 +702,16 @@ describe.only("Tests for Deposit", () => {
           ]
         );
 
-        await rebalancing.updateTokens({
+        const data = await rebalancing.updateTokens({
           _newTokens: newTokens,
           _sellTokens: [sellToken],
           _sellAmounts: [sellTokenBalance],
           _handler: ensoHandler.address,
           _callData: encodedParameters,
         });
+
+        const receipt = await data.wait();
+        console.log("Transaction ID:", receipt.transactionHash);
       });
 
       it("should withdraw in single token by user in native token", async () => {
@@ -737,7 +799,7 @@ describe.only("Tests for Deposit", () => {
     FunctionParameters.withdrawRepayParams calldata repayData,
     FunctionParameters.ExternalPositionWithdrawParams memory _params*/
 
-        await withdrawManager.withdraw(
+        const data = await withdrawManager.withdraw(
           swapTokens,
           portfolio.address,
           tokenToSwapInto,
@@ -762,6 +824,9 @@ describe.only("Tests for Deposit", () => {
             _amountIn: "0",
           }
         );
+
+        const receipt = await data.wait();
+        console.log("Transaction ID:", receipt.transactionHash);
 
         let balanceAfterETH = await owner.getBalance();
 
