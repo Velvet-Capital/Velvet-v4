@@ -316,8 +316,9 @@ export async function calculateOutputAmounts(
   const AmountCalculationsAlgebra = await ethers.getContractFactory(
     "AmountCalculationsAlgebra"
   );
-  const amountCalculationsAlgebra = await AmountCalculationsAlgebra.deploy();
-  await amountCalculationsAlgebra.deployed();
+  const amountCalculationsAlgebra = await AmountCalculationsAlgebra.attach(
+    "0xFC1dDbeb05a72083E0D7E3BeD952cBb008AC1aFF"
+  );
 
   let result =
     await amountCalculationsAlgebra.callStatic.getLiquidityAmountsForPartialWithdrawal(
@@ -340,8 +341,9 @@ export async function calculateSwapAmountUpdateRange(
   const AmountCalculationsAlgebra = await ethers.getContractFactory(
     "AmountCalculationsAlgebra"
   );
-  const amountCalculationsAlgebra = await AmountCalculationsAlgebra.deploy();
-  await amountCalculationsAlgebra.deployed();
+  const amountCalculationsAlgebra = await AmountCalculationsAlgebra.attach(
+    "0xFC1dDbeb05a72083E0D7E3BeD952cBb008AC1aFF"
+  );
 
   const PositionWrapper = await ethers.getContractFactory("PositionWrapper");
   const positionWrapper = PositionWrapper.attach(position);
@@ -437,8 +439,9 @@ export async function calculateDepositAmounts(
   const AmountCalculationsAlgebra = await ethers.getContractFactory(
     "AmountCalculationsAlgebra"
   );
-  const amountCalculationsAlgebra = await AmountCalculationsAlgebra.deploy();
-  await amountCalculationsAlgebra.deployed();
+  const amountCalculationsAlgebra = await AmountCalculationsAlgebra.attach(
+    "0xFC1dDbeb05a72083E0D7E3BeD952cBb008AC1aFF"
+  );
 
   // Get amounts for new price range (to calculate the ratio)
   let amounts =

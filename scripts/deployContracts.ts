@@ -53,9 +53,6 @@ async function main() {
     "0x6CD9E1FfC17ef0F68f370b8B1E7A33b34970d359"
   );
 
-  await protocolConfig.updateProtocolFee(0);
-  await protocolConfig.updateProtocolStreamingFee(0);
-
   console.log("protocolConfig address:", protocolConfig.address);
 
   await protocolConfig.setCoolDownPeriod("60");
@@ -105,51 +102,27 @@ async function main() {
   const TokenExclusionManager = await ethers.getContractFactory(
     "TokenExclusionManager"
   );
-  const tokenExclusionManager = await TokenExclusionManager.deploy();
-
-  console.log("tokenExclusionManager address:", tokenExclusionManager.address);
-
-  await tenderly.verify({
-    name: "TokenExclusionManager",
-    address: tokenExclusionManager.address,
-  });
+  const tokenExclusionManager = await TokenExclusionManager.attach(
+    "0x07f22b9Bc6C0Ad1CAaCd039CC1775c146599111f"
+  );
 
   const TokenRemovalVault = await ethers.getContractFactory(
     "TokenRemovalVault"
   );
   const tokenRemovalVault = await TokenRemovalVault.deploy();
-  await tokenRemovalVault.deployed();
-
-  console.log("tokenRemovalVault address:", tokenRemovalVault.address);
-
-  await tenderly.verify({
-    name: "TokenRemovalVault",
-    address: tokenRemovalVault.address,
-  });
+  await tokenRemovalVault.attach("0x6fC0a5547821D93ab015266026D1e0b219303b7C");
 
   const BorrowManager = await ethers.getContractFactory("BorrowManager");
-  const borrowManager = await BorrowManager.deploy();
-  await borrowManager.deployed();
-
-  console.log("BorrowManager address:", borrowManager.address);
-
-  await tenderly.verify({
-    name: "BorrowManager",
-    address: borrowManager.address,
-  });
+  const borrowManager = await BorrowManager.attach(
+    "0xd2a680c5366fFDAF08b6F12a57fa0a7a27692f18"
+  );
 
   const PositionManagerThena = await ethers.getContractFactory(
     "PositionManagerThena"
   );
-  const positionManagerThena = await PositionManagerThena.deploy();
-  await positionManagerThena.deployed();
-
-  console.log("positionManager address:", positionManagerThena.address);
-
-  await tenderly.verify({
-    name: "PositionManagerThena",
-    address: positionManagerThena.address,
-  });
+  const positionManagerThena = await PositionManagerThena.attach(
+    "0x0c7bFE92E28525B40Ae567F3A50b80132F984fe9"
+  );
 
   console.log(
     "------------------------------ Deployment Ended ------------------------------"

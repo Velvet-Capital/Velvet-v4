@@ -113,9 +113,9 @@ const config: HardhatUserConfig = {
         mnemonic,
         // path: "m/44'/60'/0'/0",
       },
+      gasPrice: 5000000000, // 5 gwei
       chainId: chainIds["bscMainnet"],
       url: "https://bsc-dataseed.binance.org/",
-      gasPrice: 5000000000,
     },
     MaticTestnet: {
       accounts: {

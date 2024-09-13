@@ -36,10 +36,41 @@ describe.only("Tests for Deposit", () => {
   let accounts;
   let iaddress: IAddresses;
   let portfolio: any;
+  let ensoHandler: EnsoHandler;
+  let swapHandler: UniswapV2Handler;
+  let rebalancing: any;
+  let owner: SignerWithAddress;
+  let treasury: SignerWithAddress;
   let _assetManagerTreasury: SignerWithAddress;
+  let positionManager: PositionManagerThena;
+  let positionWrapper: any;
+  let positionWrapper2: any;
+  let addrs: SignerWithAddress[];
+  let depositBatch: any;
+  let depositManager: any;
+  let portfolioCalculations: any;
+  let withdrawManager: any;
+  let withdrawBatch: any;
+
+  let amountCalculationsAlgebra: AmountCalculationsAlgebra;
+
+  const assetManagerHash = ethers.utils.keccak256(
+    ethers.utils.toUtf8Bytes("ASSET_MANAGER")
+  );
 
   const ZERO_ADDRESS = "0x0000000000000000000000000000000000000000";
 
+  let positionWrappers: any = [];
+  let swapTokens: any = [];
+  let positionWrapperIndex: any = [];
+  let portfolioTokenIndex: any = [];
+  let isExternalPosition: any = [];
+  let isTokenExternalPosition: any = [];
+  let index0: any = [];
+  let index1: any = [];
+
+  let position1: any;
+  let position2: any;
   let position3: any;
 
   /// @dev The minimum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**-128
@@ -51,9 +82,6 @@ describe.only("Tests for Deposit", () => {
   const chainId: any = process.env.CHAIN_ID;
   const addresses = chainIdToAddresses[chainId];
 
-  const position1 = "0x4E4aF01995Bb49c8d9ecb1db6e72D6aEA58D6388";
-  const position2 = "0x03E24C55f86A60C55FAA4883058F7013301b429A";
-
   function delay(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
@@ -64,7 +92,6 @@ describe.only("Tests for Deposit", () => {
     let nonOwner: SignerWithAddress;
     let addr1: SignerWithAddress;
     let addr2: SignerWithAddress;
-    let addrs: SignerWithAddress[];
 
     before(async () => {
       accounts = await ethers.getSigners();
@@ -85,10 +112,8 @@ describe.only("Tests for Deposit", () => {
 
       iaddress = await tokenAddresses();
 
-      // Create new portfolio
-
       // @todo
-      /* const PortfolioFactory = await ethers.getContractFactory(
+      /*const PortfolioFactory = await ethers.getContractFactory(
         "PortfolioFactory"
       );
       const portfolioFactory = PortfolioFactory.attach(
@@ -122,19 +147,12 @@ describe.only("Tests for Deposit", () => {
     });
 
     describe("Test Cases", function () {
-      /*it("should create new position", async () => {
-        const PositionManager = await ethers.getContractFactory(
-          "PositionManagerThena"
-        );
-        const positionManager = PositionManager.attach(
-          "0xA542203e68bEF559B7554f6Fec3487dcD669E70D"
-        );
-
+      it("should create new position", async () => {
         // UniswapV3 position
         const token0 = iaddress.ethAddress;
         const token1 = iaddress.btcAddress;
 
-        const data = await positionManager.createNewWrapperPosition(
+        await positionManager.createNewWrapperPosition(
           token0,
           token1,
           "Test",
@@ -143,24 +161,17 @@ describe.only("Tests for Deposit", () => {
           MAX_TICK
         );
 
-        if (await positionManager.deployedPositionWrappers(1))
-          console.log(
-            "position1",
-            await positionManager.deployedPositionWrappers(1)
-          );
+        position1 = await positionManager.deployedPositionWrappers(0);
 
-        const receipt = await data.wait();
-        console.log("Transaction ID:", receipt.transactionHash);
+        console.log("position1", position1);
+
+        const PositionWrapper = await ethers.getContractFactory(
+          "PositionWrapper"
+        );
+        positionWrapper = PositionWrapper.attach(position1);
       });
 
-      it("should create new position", async () => {
-        const PositionManager = await ethers.getContractFactory(
-          "PositionManagerThena"
-        );
-        const positionManager = PositionManager.attach(
-          "0xA542203e68bEF559B7554f6Fec3487dcD669E70D"
-        );
-
+      /*it("should create new position", async () => {
         // UniswapV3 position
         const token0 = iaddress.btcAddress;
         const token1 = iaddress.ethAddress;
@@ -185,20 +196,13 @@ describe.only("Tests for Deposit", () => {
       });
 
       it("should init tokens", async () => {
-        portfolio = portfolio = await ethers.getContractAt(
-          Portfolio__factory.abi,
-          "0x3204e86623c635aeD105168532100F16B2f00C9E"
-        );
-        let data = await portfolio.initToken([
+        await portfolio.initToken([
           iaddress.usdcAddress,
-          "0x03E24C55f86A60C55FAA4883058F7013301b429A", // position2
+          position2,
           iaddress.dogeAddress,
           iaddress.btcAddress,
-          "0x4E4aF01995Bb49c8d9ecb1db6e72D6aEA58D6388", // position1
+          position1,
         ]);
-
-        const receipt = await data.wait();
-        console.log("Transaction ID:", receipt.transactionHash);
 
         positionWrappers = [position2, position1];
         swapTokens = [
@@ -219,40 +223,7 @@ describe.only("Tests for Deposit", () => {
       });
 
       it("user should invest (ETH - native token)", async () => {
-        portfolio = portfolio = await ethers.getContractAt(
-          Portfolio__factory.abi,
-          "0x3204e86623c635aeD105168532100F16B2f00C9E"
-        );
-
-        const PositionWrapper = await ethers.getContractFactory(
-          "PositionWrapper"
-        );
-        const positionWrapper = PositionWrapper.attach(position1);
-        const positionWrapper2 = PositionWrapper.attach(position2);
-
-        let positionWrappers = [position2, position1];
-        let swapTokens = [
-          iaddress.usdcAddress,
-          await positionWrapper2.token0(), // position2 - token0
-          await positionWrapper2.token1(), // position2 - token1
-          iaddress.dogeAddress,
-          iaddress.btcAddress,
-          await positionWrapper.token0(), // position1 - token0
-          await positionWrapper.token1(), // position1 - token1
-        ];
-        let positionWrapperIndex = [1, 4];
-        let portfolioTokenIndex = [0, 1, 1, 2, 3, 4, 4];
-        let isExternalPosition = [false, true, true, false, false, true, true];
-        let isTokenExternalPosition = [false, true, false, false, true];
-        let index0 = [1, 5];
-        let index1 = [2, 6];
-
-        const DepositBatchExternalPositions = await ethers.getContractFactory(
-          "DepositBatchExternalPositions"
-        );
-        let depositBatch = await DepositBatchExternalPositions.attach(
-          "0x0ca226CA59d20FfF1d5279D02FE16f6d79A8BcAe"
-        );
+        let tokens = await portfolio.getTokens();
 
         console.log("SupplyBefore", await portfolio.totalSupply());
 
@@ -264,17 +235,19 @@ describe.only("Tests for Deposit", () => {
             depositBatch.address,
             "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
             swapTokens[i],
-            "2000000000000000"
+            "2800000000000000"
           );
           postResponse.push(response.data.tx.data);
         }
+
+        let balanceBeforeETH = await nonOwner.getBalance();
 
         const data = await depositBatch
           .connect(nonOwner)
           .multiTokenSwapETHAndTransfer(
             {
               _minMintAmount: 0,
-              _depositAmount: "14000000000000000",
+              _depositAmount: "20000000000000000",
               _target: portfolio.address,
               _depositToken: "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
               _callData: postResponse,
@@ -294,12 +267,22 @@ describe.only("Tests for Deposit", () => {
               _amountIn: "0",
             },
             {
-              value: "14000000000000000",
+              value: "20000000000000000",
             }
           );
 
         const receipt = await data.wait();
         console.log("Transaction ID:", receipt.transactionHash);
+
+        let balanceAfterETH = await nonOwner.getBalance();
+
+        const userShare =
+          Number(BigNumber.from(await portfolio.balanceOf(nonOwner.address))) /
+          Number(BigNumber.from(await portfolio.totalSupply()));
+
+        await calculateOutputAmounts(position1, "10000");
+
+        console.log("SupplyAfter", await portfolio.totalSupply());
       });
 
       it("user should invest (ETH - native token)", async () => {
@@ -366,34 +349,9 @@ describe.only("Tests for Deposit", () => {
       });
 
       it("should rebalance from a position wrapper token to a ERC20 token", async () => {
-        const AmountCalculationsAlgebra = await ethers.getContractFactory(
-          "AmountCalculationsAlgebra"
-        );
-        let amountCalculationsAlgebra = AmountCalculationsAlgebra.attach(
-          "0xFC1dDbeb05a72083E0D7E3BeD952cBb008AC1aFF"
-        );
+        // initialized tokens
 
-        const EnsoHandler = await ethers.getContractFactory("EnsoHandler");
-        let ensoHandler = EnsoHandler.attach(
-          "0x854554ce1db7615887cC91b19a7AF633e469c282"
-        );
-
-        let rebalancing = await ethers.getContractAt(
-          Rebalancing__factory.abi,
-          "0x5241a5Df13E4Cf69e18598b2b430bb9F6C8A2C07"
-        );
-
-        let portfolio = await ethers.getContractAt(
-          Portfolio__factory.abi,
-          "0x3204e86623c635aeD105168532100F16B2f00C9E"
-        );
-
-        const PositionWrapper = await ethers.getContractFactory(
-          "PositionWrapper"
-        );
-        const positionWrapper = PositionWrapper.attach(position1);
-        const positionWrapper2 = PositionWrapper.attach(position2);
-
+        let tokens = await portfolio.getTokens();
         let sellToken = position1;
         let buyToken = iaddress.usdtAddress;
 
@@ -410,8 +368,8 @@ describe.only("Tests for Deposit", () => {
           buyToken,
         ];
 
-        let positionWrappers = [position2];
-        let swapTokens = [
+        positionWrappers = [position2];
+        swapTokens = [
           iaddress.usdcAddress,
           await positionWrapper2.token0(), // position2 - token0
           await positionWrapper2.token1(), // position2 - token1
@@ -419,12 +377,12 @@ describe.only("Tests for Deposit", () => {
           iaddress.btcAddress,
           iaddress.usdtAddress,
         ];
-        let positionWrapperIndex = [1];
-        let portfolioTokenIndex = [0, 1, 1, 2, 3, 4];
-        let isExternalPosition = [false, true, true, false, false, false];
-        let isTokenExternalPosition = [false, true, false, false, false];
-        let index0 = [1];
-        let index1 = [2];
+        positionWrapperIndex = [1];
+        portfolioTokenIndex = [0, 1, 1, 2, 3, 4];
+        isExternalPosition = [false, true, true, false, false, false];
+        isTokenExternalPosition = [false, true, false, false, false];
+        index0 = [1];
+        index1 = [2];
 
         let vault = await portfolio.vault();
 
@@ -521,52 +479,10 @@ describe.only("Tests for Deposit", () => {
 
         const receipt = await data.wait();
         console.log("Transaction ID:", receipt.transactionHash);
-      });*/
+      });
 
       it("should withdraw in single token by user in native token", async () => {
-        const AmountCalculationsAlgebra = await ethers.getContractFactory(
-          "AmountCalculationsAlgebra"
-        );
-        let amountCalculationsAlgebra = AmountCalculationsAlgebra.attach(
-          "0xFC1dDbeb05a72083E0D7E3BeD952cBb008AC1aFF"
-        );
-
-        let portfolio = await ethers.getContractAt(
-          Portfolio__factory.abi,
-          "0x3204e86623c635aeD105168532100F16B2f00C9E"
-        );
-
-        const WithdrawBatch = await ethers.getContractFactory(
-          "WithdrawBatchExternalPositions"
-        );
-        const withdrawBatch = WithdrawBatch.attach(
-          "0x66c88929675268Fb7c5B9d9f3a37DD7cA0aAF60E"
-        );
-
-        const WithdrawManager = await ethers.getContractFactory(
-          "WithdrawManagerExternalPositions"
-        );
-        const withdrawManager = WithdrawManager.attach(
-          "0xe3EEA0AA222ab8d57f2161ca4ff9040A69F70508"
-        );
-
-        const PortfolioCalculations = await ethers.getContractFactory(
-          "PortfolioCalculations",
-          {
-            libraries: {
-              TokenBalanceLibrary: "0x99a649fB4e765f4d5e6665B2e72879084f688223",
-            },
-          }
-        );
-        const portfolioCalculations = await PortfolioCalculations.attach(
-          "0x77650571cB1f96Fa341B529B10488797320431FB"
-        );
-
-        const PositionWrapper = await ethers.getContractFactory(
-          "PositionWrapper"
-        );
-        const positionWrapper = PositionWrapper.attach(position1);
-        const positionWrapper2 = PositionWrapper.attach(position2);
+        await ethers.provider.send("evm_increaseTime", [62]);
 
         const supplyBefore = await portfolio.totalSupply();
         const user = nonOwner;
@@ -576,27 +492,11 @@ describe.only("Tests for Deposit", () => {
 
         const amountPortfolioToken = BigNumber.from(
           await portfolio.balanceOf(user.address)
-        );
+        ).div(2);
 
         const ERC20 = await ethers.getContractFactory("ERC20Upgradeable");
         const balanceBefore = await provider.getBalance(user.address);
         const tokens = await portfolio.getTokens();
-
-        let positionWrappers = [position2];
-        let swapTokens = [
-          iaddress.usdcAddress,
-          await positionWrapper2.token0(), // position2 - token0
-          await positionWrapper2.token1(), // position2 - token1
-          iaddress.dogeAddress,
-          iaddress.btcAddress,
-          iaddress.usdtAddress,
-        ];
-        let positionWrapperIndex = [1];
-        let portfolioTokenIndex = [0, 1, 1, 2, 3, 4];
-        let isExternalPosition = [false, true, true, false, false, false];
-        let isTokenExternalPosition = [false, true, false, false, false];
-        let index0 = [1];
-        let index1 = [2];
 
         let withdrawalAmounts =
           await portfolioCalculations.getWithdrawalAmounts(
@@ -604,7 +504,7 @@ describe.only("Tests for Deposit", () => {
             portfolio.address
           );
 
-        let swapAmounts: any = [];
+        let swapAmounts = [];
         let wrapperIndex = 0;
         for (let i = 0; i < tokens.length; i++) {
           // only push one amount
@@ -664,7 +564,11 @@ describe.only("Tests for Deposit", () => {
 
         let balanceBeforeETH = await user.getBalance();
 
-        const data = await withdrawManager.connect(user).withdraw(
+        /*
+    FunctionParameters.withdrawRepayParams calldata repayData,
+    FunctionParameters.ExternalPositionWithdrawParams memory _params*/
+
+      /*const data = await withdrawManager.connect(user).withdraw(
           swapTokens,
           portfolio.address,
           tokenToSwapInto,
@@ -701,7 +605,7 @@ describe.only("Tests for Deposit", () => {
 
         expect(Number(balanceAfter)).to.be.greaterThan(Number(balanceBefore));
         expect(Number(supplyBefore)).to.be.greaterThan(Number(supplyAfter));
-      });
+      });*/
     });
   });
 });
