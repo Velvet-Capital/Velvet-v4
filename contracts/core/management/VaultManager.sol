@@ -5,7 +5,7 @@ import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/token
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/security/ReentrancyGuardUpgradeable.sol";
 import {TransferHelper} from "@uniswap/lib/contracts/libraries/TransferHelper.sol";
 import {IVelvetSafeModule} from "../../vault/IVelvetSafeModule.sol";
-
+import {IAssetManagementConfig} from "../../config/assetManagement/IAssetManagementConfig.sol";
 import {IPortfolio} from "../interfaces/IPortfolio.sol";
 
 import {FeeManager} from "./FeeManager.sol";
@@ -20,7 +20,6 @@ import {FunctionParameters} from "../../FunctionParameters.sol";
 import {TokenBalanceLibrary} from "../calculations/TokenBalanceLibrary.sol";
 import {IBorrowManager} from "../interfaces/IBorrowManager.sol";
 import {IAssetHandler} from "../interfaces/IAssetHandler.sol";
-import "hardhat/console.sol";
 
 /**
  * @title VaultManager
@@ -340,18 +339,19 @@ abstract contract VaultManager is
 
     uint256 tokenAmount;
 
+    IAssetManagementConfig _assetManagementConfig = assetManagementConfig();
     // If the total supply is zero, this is the first deposit, and tokens are minted based on the initial amount.
     if (_totalSupply == 0) {
-      tokenAmount = assetManagementConfig().initialPortfolioAmount();
+      tokenAmount = _assetManagementConfig.initialPortfolioAmount();
       // Reset the high watermark to zero if it's not the first deposit.
       feeModule().resetHighWaterMark();
     } else {
       // Calculate the amount of portfolio tokens to mint based on the deposit.
-      tokenAmount = _getTokenAmountToMint(_depositRatio, _totalSupply);
+      tokenAmount = _getTokenAmountToMint(_depositRatio, _totalSupply,_assetManagementConfig);
     }
 
     // Mint the calculated portfolio tokens to the user, applying any cooldown periods.
-    tokenAmount = _mintTokenAndSetCooldown(_depositFor, tokenAmount);
+    tokenAmount = _mintTokenAndSetCooldown(_depositFor, tokenAmount,_assetManagementConfig);
 
     // Ensure the minted amount meets the user's minimum expectation to mitigate slippage.
     _verifyUserMintedAmount(tokenAmount, _minMintAmount);
@@ -516,7 +516,7 @@ abstract contract VaultManager is
     TokenBalanceLibrary.ControllerData[] memory controllersData
   ) private returns (uint256, uint256) {
     // Calculate the proportion of each token to return based on the burned portfolio tokens.
-    uint256 tokenBalance = TokenBalanceLibrary._getTokenBalanceOf(
+    uint256 tokenBalance = TokenBalanceLibrary._getAdjustedTokenBalance(
       _token,
       vault,
       _protocolConfig,
@@ -740,8 +740,7 @@ abstract contract VaultManager is
           depositAmounts,
           portfolioTokens,
           tokenBalancesBefore,
-          usePermit,
-          controllersData
+          usePermit
         );
     }
 
@@ -772,7 +771,6 @@ abstract contract VaultManager is
    * @param portfolioTokens An array of token addresses in the portfolio.
    * @param tokenBalancesBefore An array of token balances before the transfer.
    * @param usePermit A boolean indicating whether to use permit for transfers.
-   * @param controllersData An array of controller data for balance calculations.
    * @return uint256 Returns 0 as there's no ratio to calculate for an empty vault.
    */
   function _handleEmptyVaultTransfer(
@@ -781,23 +779,20 @@ abstract contract VaultManager is
     uint256[] calldata depositAmounts,
     address[] memory portfolioTokens,
     uint256[] memory tokenBalancesBefore,
-    bool usePermit,
-    TokenBalanceLibrary.ControllerData[] memory controllersData
+    bool usePermit
   ) private returns (uint256) {
     uint256[] memory depositedAmounts = new uint256[](amountLength);
 
     for (uint256 i; i < amountLength; i++) {
       uint256 depositAmount = depositAmounts[i];
       if (depositAmount == 0) revert ErrorLibrary.AmountCannotBeZero();
-
-      _transferToken(_from, portfolioTokens[i], depositAmount, usePermit);
+      address token = portfolioTokens[i];
+      _transferToken(_from, token, depositAmount, usePermit);
 
       if (
         TokenBalanceLibrary._getTokenBalanceOf(
-          portfolioTokens[i],
-          vault,
-          _protocolConfig,
-          controllersData
+          token,
+          vault
         ) <= tokenBalancesBefore[i]
       ) {
         revert ErrorLibrary.TransferFailed();
@@ -867,7 +862,7 @@ abstract contract VaultManager is
 
       _transferToken(_from, token, transferAmount, usePermit);
 
-      uint256 tokenBalanceAfter = TokenBalanceLibrary._getTokenBalanceOf(
+      uint256 tokenBalanceAfter = TokenBalanceLibrary._getAdjustedTokenBalance(
         token,
         vault,
         _protocolConfig,

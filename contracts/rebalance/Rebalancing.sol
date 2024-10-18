@@ -4,15 +4,10 @@ pragma solidity 0.8.17;
 import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable-4.9.6/security/ReentrancyGuardUpgradeable.sol";
 import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable-4.9.6/proxy/utils/UUPSUpgradeable.sol";
 import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable-4.9.6/access/OwnableUpgradeable.sol";
-import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-4.9.6/interfaces/IERC20Upgradeable.sol";
 import { ErrorLibrary } from "../library/ErrorLibrary.sol";
 import { IIntentHandler } from "../handler/IIntentHandler.sol";
 import { RebalancingConfig } from "./RebalancingConfig.sol";
 import { IAssetHandler } from "../core/interfaces/IAssetHandler.sol";
-import "@cryptoalgebra/integral-periphery/contracts/libraries/TransferHelper.sol";
-import "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
-import { IThena } from "../core/interfaces/IThena.sol";
-import { IVenusPool } from "../core/interfaces/IVenusPool.sol";
 import { IBorrowManager } from "../core/interfaces/IBorrowManager.sol";
 import { IAssetManagementConfig } from "../config/assetManagement/IAssetManagementConfig.sol";
 import { FunctionParameters } from "../FunctionParameters.sol";
@@ -30,8 +25,8 @@ contract Rebalancing is
   RebalancingConfig
 {
   /// @notice Emitted when weights are successfully updated after a swap operation.
-  event UpdatedWeights();
-  event UpdatedTokens(address[] newTokens);
+  event UpdatedWeights(address[] tokens, uint256[] amounts);
+  event UpdatedTokens(address[] sellTokens, address[] newTokens);
   event PortfolioTokenRemoved(
     address indexed token,
     address indexed vault,
@@ -48,6 +43,9 @@ contract Rebalancing is
     address indexed _tokenToBorrow,
     uint256 indexed _amountToBorrow
   );
+  event CollateralTokensEnabled(address[] tokens, address controller);
+  event CollateralTokensDisabled(address[] tokens, address controller);
+  event ClaimedRewardTokens(address _token, address _target, uint256 _amount);
 
   uint256 public constant TOTAL_WEIGHT = 10_000; // Represents 100% in basis points.
   IBorrowManager internal borrowManager;
@@ -98,7 +96,7 @@ contract Rebalancing is
       _callData
     );
 
-    emit UpdatedWeights();
+    emit UpdatedWeights(_sellTokens, _sellAmounts);
   }
 
   /**
@@ -189,7 +187,7 @@ contract Rebalancing is
 
     uint256 newTokensLength = _newTokens.length;
     for (uint256 i; i < newTokensLength; i++) {
-      tokensMapping[_newTokens[i]] = false;
+      delete tokensMapping[_newTokens[i]];
     }
 
     for (uint256 i; i < tokenLength; i++) {
@@ -203,7 +201,7 @@ contract Rebalancing is
       delete tokensMapping[_portfolioToken];
     }
 
-    emit UpdatedTokens(_newTokens);
+    emit UpdatedTokens(_sellTokens, _newTokens);
   }
 
   /**
@@ -294,8 +292,7 @@ contract Rebalancing is
     }
 
     portfolio.updateTokenList(newTokens);
-
-    uint256 tokenBalance = IERC20Upgradeable(_token).balanceOf(_vault);
+    uint256 tokenBalance = _getTokenBalanceOf(_token, _vault);
     _tokenRemoval(_token, tokenBalance);
   }
 
@@ -309,7 +306,7 @@ contract Rebalancing is
     if (_isPortfolioToken(_token, _getCurrentTokens()))
       revert ErrorLibrary.IsPortfolioToken();
 
-    uint256 tokenBalance = IERC20Upgradeable(_token).balanceOf(_vault);
+    uint256 tokenBalance = _getTokenBalanceOf(_token, _vault);
     _tokenRemoval(_token, tokenBalance);
   }
 
@@ -372,6 +369,7 @@ contract Rebalancing is
       protocolConfig.assetHandlers(_controller)
     );
     portfolio.vaultInteraction(_controller, assetHandler.enterMarket(_tokens));
+    emit CollateralTokensEnabled(_tokens, _controller);
   }
 
   /**
@@ -398,6 +396,7 @@ contract Rebalancing is
         assetHandler.exitMarket(token)
       );
     }
+    emit CollateralTokensDisabled(_tokens, _controller);
   }
 
   /**
@@ -423,6 +422,8 @@ contract Rebalancing is
       !protocolConfig.isBorrowableToken(_pool) ||
       !protocolConfig.isSupportedControllers(_controller)
     ) revert ErrorLibrary.InvalidAddress();
+
+    if (_amountToBorrow == 0) revert ErrorLibrary.AmountCannotBeZero();
 
     IAssetHandler assetHandler = IAssetHandler(
       protocolConfig.assetHandlers(_controller)
@@ -490,7 +491,7 @@ contract Rebalancing is
     if (_percentage >= TOTAL_WEIGHT)
       revert ErrorLibrary.InvalidTokenRemovalPercentage();
 
-    uint256 tokenBalance = IERC20Upgradeable(_token).balanceOf(_vault);
+    uint256 tokenBalance = _getTokenBalanceOf(_token, _vault);
     tokenBalanceToRemove = (tokenBalance * _percentage) / TOTAL_WEIGHT;
   }
 
@@ -591,6 +592,7 @@ contract Rebalancing is
       if (tokenBalancesInVaultAfter[i] < tokenBalancesInVaultBefore[i])
         revert ErrorLibrary.ClaimFailed();
     }
+    emit ClaimedRewardTokens(_tokenToBeClaimed, _target, rewardTokenBalanceAfter);
   }
 
   /**

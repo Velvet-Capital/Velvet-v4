@@ -266,7 +266,7 @@ contract PortfolioCalculations is ExponentialNoError {
         for (uint256 i = 0; i < tokensLength; i++) {
             address _token = tokens[i];
             // Calculate the proportion of each token to return based on the burned portfolio tokens.
-            uint256 tokenBalance = TokenBalanceLibrary._getTokenBalanceOf(
+            uint256 tokenBalance = TokenBalanceLibrary._getAdjustedTokenBalance(
                 _token,
                 _vault,
                 _protocolConfig,

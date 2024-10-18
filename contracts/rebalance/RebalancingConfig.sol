@@ -71,22 +71,25 @@ contract RebalancingConfig is AccessRoles, Initializable {
         address[] memory _newTokens
     ) internal {
         uint256 tokenLength = _newTokens.length;
-        for (uint256 i; i < tokenLength; i++) {
+        for (uint256 i; i < tokenLength;) {
             address token = _newTokens[i];
             if (_getTokenBalanceOf(token, _vault) == 0)
                 revert ErrorLibrary.BalanceOfVaultCannotNotBeZero(token);
             tokensMapping[token] = true;
+            unchecked { ++i; }
         }
 
         uint256 ensoBuyTokensLength = _ensoBuyTokens.length;
-        for (uint256 i; i < ensoBuyTokensLength; i++) {
+        for (uint256 i; i < ensoBuyTokensLength;) {
             if (!tokensMapping[_ensoBuyTokens[i]]) {
                 revert ErrorLibrary.InvalidBuyTokenList();
             }
+            unchecked { ++i; }
         }
 
-        for (uint256 i; i < tokenLength; i++) {
+        for (uint256 i; i < tokenLength;) {
             delete tokensMapping[_newTokens[i]];
+            unchecked { ++i; }
         }
     }
 
@@ -139,8 +142,9 @@ contract RebalancingConfig is AccessRoles, Initializable {
     ) internal view returns (uint256[] memory) {
         uint256 tokensLength = _tokens.length;
         uint256[] memory tokenBalances = new uint256[](tokensLength);
-        for (uint256 i; i < tokensLength; i++) {
+        for (uint256 i; i < tokensLength;) {
             tokenBalances[i] = _getTokenBalanceOf(_tokens[i], _of);
+            unchecked { ++i; }
         }
         return tokenBalances;
     }

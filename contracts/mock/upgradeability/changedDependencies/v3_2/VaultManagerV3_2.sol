@@ -150,7 +150,7 @@ abstract contract VaultManagerV3_2 is
             feeModule().resetHighWaterMark();
         } else {
             // Calculate the amount of portfolio tokens to mint based on the deposit.
-            tokenAmount = _getTokenAmountToMint(_depositRatio, _totalSupply);
+            tokenAmount = _getTokenAmountToMint(_depositRatio, _totalSupply,assetManagementConfig());
         }
 
         // Mint the calculated portfolio tokens to the user, applying any cooldown periods.
@@ -219,7 +219,7 @@ abstract contract VaultManagerV3_2 is
         for (uint256 i; i < portfolioTokenLength; i++) {
             address _token = portfolioTokens[i];
             // Calculate the proportion of each token to return based on the burned portfolio tokens.
-            uint256 tokenBalance = TokenBalanceLibrary._getTokenBalanceOf(
+            uint256 tokenBalance = TokenBalanceLibrary._getAdjustedTokenBalance(
                 portfolioTokens[i],
                 vault,
                 _protocolConfig,
@@ -361,7 +361,7 @@ abstract contract VaultManagerV3_2 is
             transferAmount = (_minRatio * tokenBalanceBefore) / ONE_ETH_IN_WEI;
             _transferToVault(_from, token, transferAmount);
 
-            uint256 tokenBalanceAfter = TokenBalanceLibrary._getTokenBalanceOf(
+            uint256 tokenBalanceAfter = TokenBalanceLibrary._getAdjustedTokenBalance(
                 token,
                 vault,
                 _protocolConfig,

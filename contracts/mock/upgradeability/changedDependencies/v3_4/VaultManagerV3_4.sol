@@ -3,7 +3,6 @@ pragma solidity 0.8.17;
 
 import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/token/ERC20/IERC20Upgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/security/ReentrancyGuardUpgradeable.sol";
-
 import {IVelvetSafeModule} from "../../../../vault/IVelvetSafeModule.sol";
 
 import {IPortfolio} from "../../../../core/interfaces/IPortfolio.sol";
@@ -144,7 +143,7 @@ abstract contract VaultManagerV3_4 is
             feeModule().resetHighWaterMark();
         } else {
             // Calculate the amount of portfolio tokens to mint based on the deposit.
-            tokenAmount = _getTokenAmountToMint(_depositRatio, _totalSupply);
+            tokenAmount = _getTokenAmountToMint(_depositRatio, _totalSupply,assetManagementConfig());
         }
 
         // Mint the calculated portfolio tokens to the user, applying any cooldown periods.
@@ -202,7 +201,7 @@ abstract contract VaultManagerV3_4 is
         for (uint256 i; i < portfolioTokenLength; i++) {
             address _token = portfolioTokens[i];
             // Calculate the proportion of each token to return based on the burned portfolio tokens.
-            uint256 tokenBalance = TokenBalanceLibrary._getTokenBalanceOf(
+            uint256 tokenBalance = TokenBalanceLibrary._getAdjustedTokenBalance(
                 portfolioTokens[i],
                 vault,
                 _protocolConfig,
@@ -337,7 +336,7 @@ abstract contract VaultManagerV3_4 is
                 (_minRatio * tokenBalancesBefore[i]) /
                 ONE_ETH_IN_WEI;
             _transferToVault(_from, token, transferAmount);
-            uint256 tokenBalanceAfter = TokenBalanceLibrary._getTokenBalanceOf(
+            uint256 tokenBalanceAfter = TokenBalanceLibrary._getAdjustedTokenBalance(
                 token,
                 vault,
                 _protocolConfig,

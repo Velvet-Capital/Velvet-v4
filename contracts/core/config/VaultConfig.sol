@@ -74,13 +74,9 @@ abstract contract VaultConfig is AccessModifiers, ChecksAndValidations {
       revert ErrorLibrary.AlreadyInitialized();
     }
     for (uint256 i; i < tokensLength; i++) {
-      address token = _tokens[i];
-      _beforeInitCheck(token);
-      if (_previousToken[token]) {
-        revert ErrorLibrary.TokenAlreadyExist();
-      }
-      _previousToken[token] = true;
-      tokens.push(token);
+      address _token = _tokens[i];
+      _checkToken(_token);
+      tokens.push(_token);
     }
     _resetPreviousTokenList(_tokens);
     emit PublicSwapEnabled(address(this));
@@ -101,15 +97,23 @@ abstract contract VaultConfig is AccessModifiers, ChecksAndValidations {
       revert ErrorLibrary.TokenCountOutOfLimit(_assetLimit);
 
     for (uint256 i; i < tokenLength; i++) {
-      address token = _tokens[i];
-      _beforeInitCheck(token);
-      if (_previousToken[token]) {
-        revert ErrorLibrary.TokenAlreadyExist();
-      }
-      _previousToken[token] = true;
+      _checkToken(_tokens[i]);
     }
     _resetPreviousTokenList(_tokens);
     tokens = _tokens;
+  }
+
+  /**
+   * @notice Validates a token for inclusion in the vault
+   * @dev Performs initial checks and ensures the token is not already in the vault
+   * @param _token The address of the token to be validated and registered.
+   */
+  function _checkToken(address _token) internal {
+      _beforeInitCheck(_token);
+      if (_previousToken[_token]) {
+        revert ErrorLibrary.TokenAlreadyExist();
+      }
+      _previousToken[_token] = true;
   }
 
   /**
@@ -119,7 +123,7 @@ abstract contract VaultConfig is AccessModifiers, ChecksAndValidations {
   function _resetPreviousTokenList(address[] calldata _tokens) internal {
     uint256 tokensLength = _tokens.length;
     for (uint256 i; i < tokensLength; i++) {
-      _previousToken[_tokens[i]] = false;
+      delete _previousToken[_tokens[i]];
     }
   }
 

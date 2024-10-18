@@ -37,7 +37,7 @@ library TokenBalanceLibrary {
     address[] memory controllers = _protocolConfig.getSupportedControllers();
     controllersData = new ControllerData[](controllers.length);
 
-    for (uint256 i; i < controllers.length; i++) {
+    for (uint256 i; i < controllers.length;) {
       address controller = controllers[i];
       IAssetHandler assetHandler = IAssetHandler(
         _protocolConfig.assetHandlers(controller)
@@ -58,6 +58,7 @@ library TokenBalanceLibrary {
         controller: controller,
         unusedCollateralPercentage: unusedCollateralPercentage
       });
+      unchecked { ++i; }
     }
   }
 
@@ -72,10 +73,11 @@ library TokenBalanceLibrary {
     ControllerData[] memory controllersData,
     address controller
   ) internal pure returns (ControllerData memory) {
-    for (uint256 i; i < controllersData.length; i++) {
+    for (uint256 i; i < controllersData.length;) {
       if (controllersData[i].controller == controller) {
         return controllersData[i];
       }
+      unchecked { ++i; }
     }
     revert ErrorLibrary.ControllerDataNotFound();
   }
@@ -107,7 +109,7 @@ library TokenBalanceLibrary {
     controllersData = getControllersData(_vault, _protocolConfig);
 
     for (uint256 i; i < portfolioLength; ) {
-      vaultBalances[i] = _getTokenBalanceOf(
+      vaultBalances[i] = _getAdjustedTokenBalance(
         portfolioTokens[i],
         _vault,
         _protocolConfig,
@@ -128,7 +130,7 @@ library TokenBalanceLibrary {
    * @param _vault The address of the vault where the token is held.
    * @return tokenBalance The current token balance within the vault.
    */
-  function _getTokenBalanceOf(
+  function _getAdjustedTokenBalance(
     address _token,
     address _vault,
     IProtocolConfig _protocolConfig,
@@ -143,12 +145,27 @@ library TokenBalanceLibrary {
         controller
       );
 
-      uint256 rawBalance = IERC20Upgradeable(_token).balanceOf(_vault);
+      uint256 rawBalance = _getTokenBalanceOf(_token, _vault);
       tokenBalance =
         (rawBalance * controllerData.unusedCollateralPercentage) /
         1e18;
     } else {
-      tokenBalance = IERC20Upgradeable(_token).balanceOf(_vault);
+      tokenBalance = _getTokenBalanceOf(_token, _vault);
     }
+  }
+  
+  /**
+   * @notice Fetches the balance of a specific token held in a given vault.
+   * @dev Retrieves the token balance using the ERC20 `balanceOf` function.
+   *
+   * @param _token The address of the token whose balance is to be retrieved.
+   * @param _vault The address of the vault where the token is held.
+   * @return tokenBalance The current token balance within the vault.
+   */
+  function _getTokenBalanceOf(
+    address _token,
+    address _vault
+  ) public view returns (uint256 tokenBalance) {
+    tokenBalance = IERC20Upgradeable(_token).balanceOf(_vault);
   }
 }

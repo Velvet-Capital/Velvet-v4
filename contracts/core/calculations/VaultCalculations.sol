@@ -7,6 +7,8 @@ import {ErrorLibrary} from "../../library/ErrorLibrary.sol";
 import {Dependencies} from "../config/Dependencies.sol";
 import {TokenCalculations} from "./TokenCalculations.sol";
 import {MathUtils} from "./MathUtils.sol";
+import {IAssetManagementConfig} from "../../config/assetManagement/IAssetManagementConfig.sol";
+
 
 /**
  * @title VaultCalculations
@@ -22,10 +24,11 @@ abstract contract VaultCalculations is Dependencies, TokenCalculations {
    */
   function _getTokenAmountToMint(
     uint256 _depositRatio,
-    uint256 _totalSupply
+    uint256 _totalSupply,
+    IAssetManagementConfig _assetManagementConfig
   ) internal view returns (uint256) {
     uint256 mintAmount = _calculateMintAmount(_depositRatio, _totalSupply);
-    if (mintAmount < assetManagementConfig().minPortfolioTokenHoldingAmount()) {
+    if (mintAmount < _assetManagementConfig.minPortfolioTokenHoldingAmount()) {
       revert ErrorLibrary.MintedAmountIsNotAccepted();
     }
     return mintAmount;

@@ -176,7 +176,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
         uint256 borrowCount; // Counter for borrowed assets
 
         // Loop through the assets to populate the arrays
-        for (uint i = 0; i < assetsCount; i++) {
+        for (uint i = 0; i < assetsCount;) {
             IVenusPool asset = IVenusPool(assets[i]); // Get the Venus pool for the asset
             (, uint vTokenBalance, uint borrowBalance, ) = asset
                 .getAccountSnapshot(account); // Get the account snapshot
@@ -188,6 +188,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
             if (borrowBalance > 0) {
                 borrowTokens[borrowCount++] = address(asset); // Add the asset to the borrow tokens if there is a balance
             }
+            unchecked { ++i; }
         }
 
         // Resize the arrays to remove unused entries
@@ -342,7 +343,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
         )
     {
         // Loop through the assets to process each one
-        for (uint i = 0; i < assetsCount; i++) {
+        for (uint i = 0; i < assetsCount;) {
             IVenusPool asset = IVenusPool(assets[i]); // Get the Venus pool for the asset
 
             // Handle asset snapshot and update vars
@@ -361,6 +362,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
                 borrowInfo.tokens,
                 borrowInfo.count
             );
+            unchecked { ++i; }
         }
 
         // Return the updated structs
@@ -521,7 +523,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
         uint assetsCount = assets.length;
         uint256 count;
         borrowedTokens = new address[](assetsCount);
-        for (uint i = 0; i < assetsCount; ++i) {
+        for (uint i = 0; i < assetsCount;) {
             IVenusPool asset = IVenusPool(assets[i]);
 
             // Read the balances and exchange rate from the vToken
@@ -535,6 +537,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
                 borrowedTokens[count] = address(asset);
                 count++;
             }
+            unchecked { ++i; }
         }
         uint256 spaceToRemove = assetsCount - count;
         assembly {
@@ -610,13 +613,15 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
         amounts = new uint256[](lendTokens.length); // Initialize the amounts array
 
         // Loop through the lent tokens to calculate the amount to sell
-        for (uint256 i; i < lendTokens.length; i++) {
+        for (uint256 i; i < lendTokens.length;) {
             uint256 balance = IERC20Upgradeable(lendTokens[i]).balanceOf(_user); // Get the balance of the token
 
             uint256 amountToSell = (balance * percentageToRemove);
             amountToSell = amountToSell + ((amountToSell * bufferUnit) / 100000); // Buffer of 0.001%
             amounts[i] = amountToSell / 10 ** 18; // Calculate the amount to sell
+            unchecked { ++i; }
         }
+
     }
 
     /**
@@ -675,24 +680,27 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
         uint256 count;
 
         // Add swap transactions to the final array
-        for (uint i = 0; i < swapTransactions.length; i++) {
+        for (uint i = 0; i < swapTransactions.length;) {
             transactions[count].to = swapTransactions[i].to;
             transactions[count].txData = swapTransactions[i].txData;
             count++;
+            unchecked { ++i; }
         }
 
         // Add repay transactions to the final array
-        for (uint i = 0; i < repayLoanTransaction.length; i++) {
+        for (uint i = 0; i < repayLoanTransaction.length;) {
             transactions[count].to = repayLoanTransaction[i].to;
             transactions[count].txData = repayLoanTransaction[i].txData;
             count++;
+            unchecked { ++i; }
         }
 
         // Add withdrawal transactions to the final array
-        for (uint i = 0; i < withdrawTransaction.length; i++) {
+        for (uint i = 0; i < withdrawTransaction.length;) {
             transactions[count].to = withdrawTransaction[i].to;
             transactions[count].txData = withdrawTransaction[i].txData;
             count++;
+            unchecked { ++i; }
         }
 
         return (transactions, totalFlashAmount); // Return the final array of transactions and total flash loan amount
@@ -721,7 +729,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
         uint count;
 
         // Loop through the debt tokens to handle swaps and transfers
-        for (uint i; i < tokenLength; i++) {
+        for (uint i; i < tokenLength;) {
             // Check if the flash loan token is different from the debt token
             if (flashData.flashLoanToken != flashData.debtToken[i]) {
                 // Transfer the flash loan token to the solver handler
@@ -757,6 +765,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
             }
 
             totalFlashAmount += flashData.flashLoanAmount[i]; // Update the total flash loan amount
+            unchecked { ++i; }
         }
         // Resize the transactions array to remove unused entries
         uint unusedLength = ((tokenLength * 2) - count);
@@ -782,7 +791,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
             ? type(uint256).max // If it's a max repayment, repay the max amount
             : flashData.debtRepayAmount[0]; // Otherwise, repay the debt amount
         // Loop through the debt tokens to handle repayments
-        for (uint i = 0; i < tokenLength; i++) {
+        for (uint i = 0; i < tokenLength;) {
             // Approve the debt token for the protocol
             transactions[count].to = executor;
             transactions[count].txData = abi.encodeWithSelector(
@@ -800,6 +809,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
                 repay(amountToRepay)
             );
             count++;
+            unchecked { ++i; }
         }
     }
 
@@ -833,7 +843,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
         uint256 count; // Count for the transactions
         uint256 swapDataCount; // Count for the swap data
         // Loop through the repayment amounts to handle withdrawals
-        for (uint i = 0; i < amountLength; i++) {
+        for (uint i = 0; i < amountLength;) {
             // Get the amounts to sell based on the collateral
             uint256[] memory sellAmounts = getCollateralAmountToSell(
                 user,
@@ -847,7 +857,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
             );
 
             // Loop through the lending tokens to process each one
-            for (uint j = 0; j < lendingTokens.length; j++) {
+            for (uint j = 0; j < lendingTokens.length;) {
                 // Pull the token from the vault
                 transactions[count].to = executor;
                 transactions[count].txData = abi.encodeWithSelector(
@@ -868,7 +878,9 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
                 );
                 count++;
                 swapDataCount++;
+                unchecked { ++j; }
             }
+            unchecked { ++i; }
         }
     }
 
@@ -887,7 +899,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
         underlying = new address[](borrowedLength);
         tokenBalance = new uint256[](borrowedLength);
 
-        for (uint256 i; i < borrowedLength; i++) {
+        for (uint256 i; i < borrowedLength;) {
             address token = borrowedTokens[i];
             uint256 borrowedAmount = IVenusPool(token).borrowBalanceStored(
                 _vault
@@ -897,6 +909,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
                 (borrowedAmount * _portfolioTokenAmount) /
                 _totalSupply; // Calculate the portion of the debt to repay
             totalFlashAmount += repayData._flashLoanAmount[i]; // Accumulate the total flash loan amount
+            unchecked { ++i; }
         }
 
         // Get the pool address for the flash loan
