@@ -120,6 +120,8 @@ describe.only("Tests for Deposit", () => {
   let index0: any = [];
   let index1: any = [];
 
+  let positionWrapperBaseAddress: any;
+
   let amountCalculationsAlgebra: AmountCalculationsAlgebra;
 
   let position1: any;
@@ -133,6 +135,10 @@ describe.only("Tests for Deposit", () => {
   const provider = ethers.provider;
   const chainId: any = process.env.CHAIN_ID;
   const addresses = chainIdToAddresses[chainId];
+
+  const thenaProtocolHash = ethers.utils.keccak256(
+    ethers.utils.toUtf8Bytes("THENA-CONCENTRATED-LIQUIDITY")
+  );
 
   function delay(ms: number) {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -197,7 +203,7 @@ describe.only("Tests for Deposit", () => {
       const PositionWrapper = await ethers.getContractFactory(
         "PositionWrapper"
       );
-      const positionWrapperBaseAddress = await PositionWrapper.deploy();
+      positionWrapperBaseAddress = await PositionWrapper.deploy();
       await positionWrapperBaseAddress.deployed();
 
       const BorrowManager = await ethers.getContractFactory("BorrowManager");
@@ -207,17 +213,20 @@ describe.only("Tests for Deposit", () => {
       const ProtocolConfig = await ethers.getContractFactory("ProtocolConfig");
       const _protocolConfig = await upgrades.deployProxy(
         ProtocolConfig,
-        [
-          treasury.address,
-          priceOracle.address,
-          positionWrapperBaseAddress.address,
-        ],
+        [treasury.address, priceOracle.address],
         { kind: "uups" }
       );
 
       protocolConfig = ProtocolConfig.attach(_protocolConfig.address);
       await protocolConfig.setCoolDownPeriod("70");
       await protocolConfig.enableSolverHandler(ensoHandler.address);
+
+      await protocolConfig.enableProtocol(
+        thenaProtocolHash,
+        "0xa51adb08cbe6ae398046a23bec013979816b77ab",
+        "0x327dd3208f0bcf590a66110acb6e5e6941a4efa0",
+        positionWrapperBaseAddress.address
+      );
 
       const Rebalancing = await ethers.getContractFactory("Rebalancing");
       const rebalancingDefult = await Rebalancing.deploy();
@@ -306,6 +315,12 @@ describe.only("Tests for Deposit", () => {
       velvetSafeModule = await VelvetSafeModule.deploy();
       await velvetSafeModule.deployed();
 
+      const ExternalPositionStorage = await ethers.getContractFactory(
+        "ExternalPositionStorage"
+      );
+      const externalPositionStorage = await ExternalPositionStorage.deploy();
+      await externalPositionStorage.deployed();
+
       const PortfolioFactory = await ethers.getContractFactory(
         "PortfolioFactory"
       );
@@ -325,6 +340,7 @@ describe.only("Tests for Deposit", () => {
             _baseVelvetGnosisSafeModuleAddress: velvetSafeModule.address,
             _baseBorrowManager: borrowManager.address,
             _basePositionManager: positionManagerBaseAddress.address,
+            _baseExternalPositionStorage: externalPositionStorage.address,
             _gnosisSingleton: addresses.gnosisSingleton,
             _gnosisFallbackLibrary: addresses.gnosisFallbackLibrary,
             _gnosisMultisendLibrary: addresses.gnosisMultisendLibrary,
@@ -366,7 +382,7 @@ describe.only("Tests for Deposit", () => {
           _transferable: true,
           _transferableToPublic: true,
           _whitelistTokens: true,
-          _externalPositionManagementWhitelisted: true,
+          _witelistedProtocolIds: [thenaProtocolHash],
         });
 
       const portfolioFactoryCreate2 = await portfolioFactory
@@ -386,7 +402,7 @@ describe.only("Tests for Deposit", () => {
           _transferable: false,
           _transferableToPublic: false,
           _whitelistTokens: false,
-          _externalPositionManagementWhitelisted: false,
+          _witelistedProtocolIds: [thenaProtocolHash],
         });
       const portfolioAddress = await portfolioFactory.getPortfolioList(0);
       const portfolioInfo = await portfolioFactory.PortfolioInfolList(0);
@@ -441,7 +457,7 @@ describe.only("Tests for Deposit", () => {
       assetManagementConfig = AssetManagementConfig.attach(config);
       assetManagementConfig1 = AssetManagementConfig.attach(config1);
 
-      await assetManagementConfig.enableUniSwapV3Manager();
+      await assetManagementConfig.enableUniSwapV3Manager(thenaProtocolHash);
 
       let positionManagerAddress =
         await assetManagementConfig.positionManager();
@@ -456,7 +472,9 @@ describe.only("Tests for Deposit", () => {
     describe("Deposit Tests", function () {
       it("non owner should not be able to enable the uniswapV3 position manager", async () => {
         await expect(
-          assetManagementConfig.connect(nonOwner).enableUniSwapV3Manager()
+          assetManagementConfig
+            .connect(nonOwner)
+            .enableUniSwapV3Manager(thenaProtocolHash)
         ).to.be.revertedWithCustomError(
           assetManagementConfig,
           "CallerNotAssetManager"
@@ -465,19 +483,30 @@ describe.only("Tests for Deposit", () => {
 
       it("owner should not be able to enable the uniswapV3 position manager after it has already been enabled", async () => {
         await expect(
-          assetManagementConfig.enableUniSwapV3Manager()
+          assetManagementConfig.enableUniSwapV3Manager(thenaProtocolHash)
         ).to.be.revertedWithCustomError(
           assetManagementConfig,
-          "UniSwapV3WrapperAlreadyEnabled"
+          "ProtocolManagerAlreadyEnabled"
         );
       });
 
       it("owner should not be able to enable the uniswapV3 position manager if not enabled during portfolio creation", async () => {
+        const thenaProtocolHash2 = ethers.utils.keccak256(
+          ethers.utils.toUtf8Bytes("THENA-CONCENTRATED-LIQUIDITY-COPY")
+        );
+        await protocolConfig.enableProtocol(
+          thenaProtocolHash2,
+          "0xa51adb08cbe6ae398046a23bec013979816b77ab",
+          "0x327dd3208f0bcf590a66110acb6e5e6941a4efa0",
+          positionWrapperBaseAddress.address
+        );
         await expect(
-          assetManagementConfig1.connect(nonOwner).enableUniSwapV3Manager()
+          assetManagementConfig1
+            .connect(nonOwner)
+            .enableUniSwapV3Manager(thenaProtocolHash2)
         ).to.be.revertedWithCustomError(
           assetManagementConfig,
-          "ExternalPositionManagementNotWhitelisted"
+          "ProtocolNotWhitelisted"
         );
       });
 

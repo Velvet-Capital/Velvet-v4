@@ -63,11 +63,10 @@ contract AssetManagementConfig is
       initData._whitelistedTokens,
       address(accessController),
       initData._basePositionManager,
+      initData._baseExternalPositionStorage,
       initData._whitelistTokens,
-      initData._externalPositionManagementWhitelisted,
-      protocolConfig,
-      initData._nftManager,
-      initData._swapRouterV3
+      initData._witelistedProtocolIds,
+      protocolConfig
     );
 
     __FeeManagement_init(

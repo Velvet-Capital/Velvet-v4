@@ -20,11 +20,13 @@ interface IPositionManager {
    * @param _accessController Address of the access control contract.
    */
   function init(
+    address _externalPositionStorage,
     address _protocolConfig,
     address _assetManagerConfig,
     address _accessController,
     address _nftManager,
-    address _swapRouter
+    address _swapRouter,
+    bytes32 _protocolId
   ) external;
 
   /**
@@ -36,15 +38,6 @@ interface IPositionManager {
   function updatePositionWrapperBaseImplementation(
     address _positionWrapperBaseImplementation
   ) external;
-
-  /**
-   * @notice Checks if a given address is a recognized and valid wrapped position.
-   * @dev This function is typically used to verify if a particular contract address corresponds
-   * to a valid position wrapper managed by this system, ensuring that interactions are limited
-   * to legitimate and tracked wrappers.
-   * @return bool Returns true if the address corresponds to a wrapped position, false otherwise.
-   */
-  function isWrappedPosition(address) external returns (bool);
 
   function initializePositionAndDeposit(
     address _dustReceiver,
@@ -93,4 +86,6 @@ interface IPositionManager {
    * @return The address of the protocol configuration contract.
    */
   function protocolConfig() external view returns (address);
+
+  function externalPositionStorage() external view returns (address);
 }

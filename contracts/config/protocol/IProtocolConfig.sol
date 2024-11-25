@@ -235,8 +235,6 @@ interface IProtocolConfig {
    */
   function disableRewardTarget(address _rewardTargetAddress) external;
 
-  function positionWrapperBaseImplementation() external view returns (address);
-
   function allowedRatioDeviationBps() external view returns (uint256);
 
   function acceptedSlippageFeeReinvestment() external view returns (uint256);
@@ -257,5 +255,39 @@ interface IProtocolConfig {
     address _factoryAddress
   ) external view returns (bool);
 
+  /**
+   * @notice Enables a protocol with specified addresses
+   * @param protocolId The identifier for the protocol (e.g., keccak256("UNISWAP_V3"))
+   * @param nftManager The NFT manager contract address for the protocol
+   * @param swapRouter The swap router contract address for the protocol
+   * @param positionWrapperBase The position wrapper base implementation address
+   */
+  function enableProtocol(
+    bytes32 protocolId,
+    address nftManager,
+    address swapRouter,
+    address positionWrapperBase
+  ) external;
+
+  /**
+   * @notice Checks if a protocol is enabled
+   * @param protocolId The identifier for the protocol
+   * @return bool True if the protocol is enabled
+   */
+  function isProtocolEnabled(bytes32 protocolId) external view returns (bool);
+
+  /**
+   * @notice Gets the protocol addresses
+   * @param protocolId The identifier for the protocol
+   * @return nftManager The NFT manager contract address
+   * @return swapRouter The swap router contract address
+   */
+  function getProtocolAddresses(
+    bytes32 protocolId
+  ) external view returns (address nftManager, address swapRouter);
+
+  function getPositionWrapperBaseImplementation(
+    bytes32 protocolId
+  ) external view returns (address);
   function MAX_BORROW_TOKEN_LIMIT() external pure returns(uint256);
 }

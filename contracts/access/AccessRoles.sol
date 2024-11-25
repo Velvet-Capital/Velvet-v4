@@ -35,4 +35,13 @@ contract AccessRoles {
 
   // Role for addresses authorized to mint tokens, typically used in token generation events or for reward distributions.
   bytes32 internal constant MINTER_ROLE = keccak256("MINTER_ROLE");
+
+  // Role for managing external positions.
+  // This role is also granted permission to write to external position storage.
+  bytes32 internal constant POSITION_MANAGER = keccak256("POSITION_MANAGER");
+
+  // Role for managing asset configurations
+  // This role is also granted permission to assign the position manager role.
+  bytes32 internal constant ASSET_MANAGER_CONFIG =
+    keccak256("ASSET_MANAGER_CONFIG");
 }

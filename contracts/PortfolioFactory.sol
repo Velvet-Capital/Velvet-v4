@@ -33,6 +33,7 @@ contract PortfolioFactory is
   address internal baseTokenRemovalVaultAddress;
   address internal basePositionManager;
   address internal baseBorrowManager;
+  address internal baseExternalPositionStorage;
 
   address public protocolConfig;
   bool internal portfolioCreationPause;
@@ -115,6 +116,7 @@ contract PortfolioFactory is
       initData._feeModuleImplementationAddress == address(0) ||
       initData._baseVelvetGnosisSafeModuleAddress == address(0) ||
       initData._basePositionManager == address(0) ||
+      initData._baseExternalPositionStorage == address(0) ||
       initData._gnosisSingleton == address(0) ||
       initData._gnosisFallbackLibrary == address(0) ||
       initData._gnosisMultisendLibrary == address(0) ||
@@ -140,6 +142,8 @@ contract PortfolioFactory is
     );
     _setBaseBorrowManager(initData._baseBorrowManager);
     setPositionManagerImplementationAddress(initData._basePositionManager);
+    baseExternalPositionStorage = initData._baseExternalPositionStorage;
+
     baseVelvetGnosisSafeModuleAddress = initData
       ._baseVelvetGnosisSafeModuleAddress;
     protocolConfig = initData._protocolConfig;
@@ -243,15 +247,13 @@ contract PortfolioFactory is
           _feeModule: address(_feeModule),
           _assetManagerTreasury: initData._assetManagerTreasury,
           _basePositionManager: basePositionManager,
+          _baseExternalPositionStorage: baseExternalPositionStorage,
           _whitelistedTokens: initData._whitelistedTokens,
           _publicPortfolio: initData._public,
           _transferable: initData._transferable,
           _transferableToPublic: initData._transferableToPublic,
           _whitelistTokens: initData._whitelistTokens,
-          _externalPositionManagementWhitelisted: initData
-            ._externalPositionManagementWhitelisted,
-          _nftManager: nftManagerAddress,
-          _swapRouterV3: swapRouterV3Address
+          _witelistedProtocolIds: initData._witelistedProtocolIds
         })
       )
     );
@@ -599,6 +601,12 @@ contract PortfolioFactory is
   ) external virtual onlyOwner {
     setTokenRemovalVaultImplementationAddress(_newImpl);
     emit UpgradeTokenRemovalVaultBaseAddress(_newImpl);
+  }
+
+  function updateBaseExternalPositionStorageAddress(
+    address _newBaseAddress
+  ) external onlyOwner {
+    baseExternalPositionStorage = _newBaseAddress;
   }
 
   /**

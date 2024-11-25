@@ -6,6 +6,7 @@ import { IProtocolConfig } from "../../config/protocol/IProtocolConfig.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable-4.9.6/proxy/utils/Initializable.sol";
 import { ExternalPositionManagement, ErrorLibrary } from "./ExternalPositionManagement.sol";
 
+import { IExternalPositionStorage } from "../../wrappers/abstract/IExternalPositionStorage.sol";
 /**
  * @title TokenWhitelistManagement
  * @dev Manages the whitelisting of tokens, determining which tokens are authorized for use within the system.
@@ -35,11 +36,10 @@ abstract contract TokenWhitelistManagement is
     address[] calldata _whitelistTokens,
     address _accessControllerAddress,
     address _basePositionManager,
+    address _baseExternalPositionStorage,
     bool _tokenWhitelistingEnabled,
-    bool _externalPositionManagementWhitelisted,
-    address _protocolConfig,
-    address _nftManager,
-    address _swapRouterV3
+    bytes32[] calldata _witelistedProtocolIds,
+    address _protocolConfig
   ) internal onlyInitializing {
     if (_protocolConfig == address(0)) revert ErrorLibrary.InvalidAddress();
     tokenWhitelistingEnabled = _tokenWhitelistingEnabled;
@@ -48,9 +48,8 @@ abstract contract TokenWhitelistManagement is
       _protocolConfig,
       _accessControllerAddress,
       _basePositionManager,
-      _externalPositionManagementWhitelisted,
-      _nftManager,
-      _swapRouterV3
+      _baseExternalPositionStorage,
+      _witelistedProtocolIds
     );
 
     if (tokenWhitelistingEnabled) {
@@ -89,7 +88,6 @@ abstract contract TokenWhitelistManagement is
   function isTokenWhitelisted(address _token) external returns (bool) {
     return
       whitelistedTokens[_token] ||
-      (address(positionManager) != address(0) &&
-        positionManager.isWrappedPosition(_token));
+      IExternalPositionStorage(externalPositions).isWrappedPosition(_token);
   }
 }

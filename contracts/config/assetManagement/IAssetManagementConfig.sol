@@ -119,4 +119,11 @@ interface IAssetManagementConfig {
   function isTokenWhitelisted(address _token) external returns (bool);
 
   function owner() external view returns (address);
+
+  /**
+   * @notice Checks if a protocol is whitelisted
+   * @param protocolId The identifier for the protocol
+   * @return bool True if the protocol is whitelisted
+   */
+  function whitelistedProtocols(bytes32 protocolId) external returns (bool);
 }

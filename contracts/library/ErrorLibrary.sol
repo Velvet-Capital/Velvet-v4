@@ -205,6 +205,12 @@ library ErrorLibrary {
   error ControllerDataNotFound();
   // @notice Thrown when the input token used for swapping is invalid
   error InvalidSwapToken();
+  // @notice Thrown when attempting to enable a protocol manager that is already enabled
+  error ProtocolManagerAlreadyEnabled(bytes32);
+  // @notice Thrown when attempting to use a protocol that is not whitelisted for the portfolio
+  error ProtocolNotWhitelisted(bytes32);
+  // @notice Thrown when attempting to use a protocol that is not enabled in protocol config
+  error ProtocolNotEnabled(bytes32);
   // @notice Thrown when protocol owner sets new borrow token limit more then max limit(20)
   error ExceedsBorrowLimit();
   // @notice Thrown when borrow token limit exceeds the max limit set by protocol owner

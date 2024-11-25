@@ -37,8 +37,7 @@ contract ProtocolConfig is
   // Implement the OwnableUpgradeable initialization.
   function initialize(
     address _velvetTreasury,
-    address _oracle,
-    address _positionWrapperBaseAlgebra
+    address _oracle
   ) external initializer {
     __Ownable2Step_init();
     __UUPSUpgradeable_init();
@@ -47,7 +46,7 @@ contract ProtocolConfig is
     __SystemSettings_init();
     __TokenManagement_init(_oracle);
     __FeeManagement_init();
-    __ExternalPositionManagement_init(_positionWrapperBaseAlgebra);
+    __ExternalPositionManagement_init();
   }
 
   function _owner() internal view override(OwnableCheck) returns (address) {
@@ -84,13 +83,14 @@ contract ProtocolConfig is
     address[] calldata _proxy,
     address _newImpl
   ) external virtual onlyProtocolOwner {
-    positionWrapperBaseImplementation = _newImpl;
     if (!isProtocolPaused) {
       revert ErrorLibrary.ProtocolNotPaused();
     }
     if (_newImpl == address(0)) {
       revert ErrorLibrary.InvalidAddress();
     }
+
+    // @todo set new implementation as base implemenation
     uint256 proxyLength = _proxy.length;
     for (uint256 i; i < proxyLength; i++) {
       address proxyAddress = _proxy[i];

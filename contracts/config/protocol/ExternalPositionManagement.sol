@@ -8,9 +8,6 @@ import { ErrorLibrary } from "../../library/ErrorLibrary.sol";
 import { Initializable } from "@openzeppelin/contracts-upgradeable-4.9.6/proxy/utils/Initializable.sol";
 
 abstract contract ExternalPositionManagement is OwnableCheck, Initializable {
-  /// @notice Address of the base implementation used for creating new position wrapper instances via cloning.
-  address public positionWrapperBaseImplementation;
-
   event PositionWrapperBaseAddressUpdated(address indexed _newAddress);
   event AllowedRatioDeviationBpsUpdated(uint256 indexed _newDeviationBps);
   event UpgradePositionWrapper(address indexed newImplementation);
@@ -21,47 +18,115 @@ abstract contract ExternalPositionManagement is OwnableCheck, Initializable {
   /// @notice The accepted slippage for fee reinvestment, measured in basis points.
   uint256 public acceptedSlippageFeeReinvestment;
 
-  function __ExternalPositionManagement_init(
-    address _positionWrapperBaseAlgebra
-  ) internal onlyInitializing {
-    _updatePositionWrapperBaseImplementationAlgebra(
-      _positionWrapperBaseAlgebra
-    );
+  /// @notice A mapping that stores information about enabled protocols.
+  mapping(bytes32 => ProtocolInfo) public protocols;
 
+  struct ProtocolInfo {
+    address nftManager;
+    address swapRouter;
+    address positionWrapperBase;
+    bool enabled;
+  }
+
+  event ProtocolEnabled(
+    bytes32 indexed protocolId,
+    address nftManager,
+    address swapRouter,
+    address positionWrapperBase
+  );
+
+  function __ExternalPositionManagement_init() internal onlyInitializing {
     allowedRatioDeviationBps = 50;
     acceptedSlippageFeeReinvestment = 100;
   }
 
   /**
-   * @notice Updates the base implementation address used for creating new position wrappers.
-   * @dev Allows the contract's asset manager to update the reference implementation for position wrappers.
-   *      This is useful when upgrading the wrapper logic without disrupting existing wrappers. The function ensures
-   *      that the new address is valid and not the zero address to prevent potential issues.
-   * @param _positionWrapperBaseImplementation The new base implementation address to be used for cloning new wrappers.
+   * @notice Enables a protocol with specified addresses
+   * @param protocolId The identifier for the protocol (e.g., keccak256("UNISWAP_V3"))
+   * @param nftManager The NFT manager contract address for the protocol
+   * @param swapRouter The swap router contract address for the protocol
+   * @param positionWrapperBase The position wrapper base implementation address
    */
-  function _updatePositionWrapperBaseImplementationAlgebra(
-    address _positionWrapperBaseImplementation
-  ) internal onlyProtocolOwner {
-    // Check if the new base implementation address is not the zero address.
-    if (_positionWrapperBaseImplementation == address(0))
-      revert ErrorLibrary.InvalidAddress();
+  function enableProtocol(
+    bytes32 protocolId,
+    address nftManager,
+    address swapRouter,
+    address positionWrapperBase
+  ) external onlyProtocolOwner {
+    if (
+      nftManager == address(0) ||
+      swapRouter == address(0) ||
+      positionWrapperBase == address(0)
+    ) revert ErrorLibrary.InvalidAddress();
 
-    // Update the base implementation address stored in the contract.
-    positionWrapperBaseImplementation = _positionWrapperBaseImplementation;
+    protocols[protocolId] = ProtocolInfo({
+      nftManager: nftManager,
+      swapRouter: swapRouter,
+      positionWrapperBase: positionWrapperBase,
+      enabled: true
+    });
+
+    emit ProtocolEnabled(
+      protocolId,
+      nftManager,
+      swapRouter,
+      positionWrapperBase
+    );
   }
 
   /**
-   *
-   * @dev Updates the base implementation address used for creating new position wrappers.
-   * @param _positionWrapperBaseImplementation The new base implementation address to be used for cloning new wrappers.
+   * @notice Disables a protocol
+   * @param protocolId The identifier for the protocol
    */
-  function updatePositionWrapperBaseImplementationAlgebra(
-    address _positionWrapperBaseImplementation
+  function disableProtocol(bytes32 protocolId) external onlyProtocolOwner {
+    protocols[protocolId].enabled = false;
+  }
+
+  /**
+   * @notice Gets the protocol addresses
+   * @param protocolId The identifier for the protocol
+   * @return nftManager The NFT manager contract address
+   * @return swapRouter The swap router contract address
+   */
+  function getProtocolAddresses(
+    bytes32 protocolId
+  ) external view returns (address nftManager, address swapRouter) {
+    ProtocolInfo memory protocol = protocols[protocolId];
+    if (!protocol.enabled) revert ErrorLibrary.ProtocolNotEnabled(protocolId);
+
+    return (protocol.nftManager, protocol.swapRouter);
+  }
+
+  /**
+   * @notice Checks if a protocol is enabled.
+   * @param protocolId The identifier for the protocol.
+   * @return True if the protocol is enabled, false otherwise.
+   */
+  function isProtocolEnabled(bytes32 protocolId) external view returns (bool) {
+    return protocols[protocolId].enabled;
+  }
+
+  /**
+   * @notice Gets the position wrapper base implementation address for a protocol.
+   * @param protocolId The identifier for the protocol.
+   * @return The address of the position wrapper base implementation.
+   */
+  function getPositionWrapperBaseImplementation(
+    bytes32 protocolId
+  ) external view returns (address) {
+    return protocols[protocolId].positionWrapperBase;
+  }
+
+  /**
+   * @notice Updates the position wrapper base implementation address for a protocol.
+   * @param protocolId The identifier for the protocol.
+   * @param newImplementation The new base implementation address to be used for cloning new wrappers.
+   */
+  function updatePositionWrapperBaseImplementation(
+    bytes32 protocolId,
+    address newImplementation
   ) external onlyProtocolOwner {
-    _updatePositionWrapperBaseImplementationAlgebra(
-      _positionWrapperBaseImplementation
-    );
-    emit PositionWrapperBaseAddressUpdated(_positionWrapperBaseImplementation);
+    protocols[protocolId].positionWrapperBase = newImplementation;
   }
 
   /**

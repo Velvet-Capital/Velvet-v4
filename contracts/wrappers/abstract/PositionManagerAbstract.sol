@@ -16,6 +16,8 @@ import { IProtocolConfig } from "../../config/protocol/IProtocolConfig.sol";
 import { IAccessController } from "../../access/IAccessController.sol";
 import { AccessRoles } from "../../access/AccessRoles.sol";
 import { IPriceOracle } from "../../oracle/IPriceOracle.sol";
+import { IExternalPositionStorage } from "./IExternalPositionStorage.sol";
+
 /**
  * @title PositionManagerAbstract
  * @notice Abstract contract for managing Uniswap V3 positions and representing them as ERC20 tokens.
@@ -47,9 +49,11 @@ abstract contract PositionManagerAbstract is
   /// @notice List of addresses for all deployed position wrapper contracts.
   address[] public deployedPositionWrappers;
 
-  /// @notice Mapping to check if a given address is an officially deployed wrapper position.
-  /// @dev Helps in validating whether interactions are with legitimate wrappers.
-  mapping(address => bool) public isWrappedPosition;
+  /// @notice The identifier for the protocol that this position manager supports.
+  bytes32 public protocolId;
+
+  /// @dev Contract for managing external positions, used to track and validate wrapped positions.
+  IExternalPositionStorage public externalPositionStorage;
 
   event NewPositionCreated(
     address indexed positionWrapper,
@@ -99,12 +103,18 @@ abstract contract PositionManagerAbstract is
    * @dev Sets up the contract with required addresses and configuration for asset management and access control.
    */
   function PositionManagerAbstract__init(
+    address _externalPositionStorage,
     address _nonFungiblePositionManagerAddress,
     address _protocolConfig,
     address _assetManagerConfig,
-    address _accessController
+    address _accessController,
+    bytes32 _protocolId
   ) internal {
     __UUPSUpgradeable_init();
+
+    externalPositionStorage = IExternalPositionStorage(
+      _externalPositionStorage
+    );
 
     uniswapV3PositionManager = INonfungiblePositionManager(
       _nonFungiblePositionManagerAddress
@@ -112,6 +122,7 @@ abstract contract PositionManagerAbstract is
     protocolConfig = IProtocolConfig(_protocolConfig);
     assetManagementConfig = IAssetManagementConfig(_assetManagerConfig);
     accessController = IAccessController(_accessController);
+    protocolId = _protocolId;
   }
 
   /**

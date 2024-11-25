@@ -2,11 +2,12 @@
 
 pragma solidity 0.8.17;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ErrorLibrary} from "../library/ErrorLibrary.sol";
-import {FunctionParameters} from "../FunctionParameters.sol";
-import {AccessRoles} from "./AccessRoles.sol";
-import {IAccessController} from "./IAccessController.sol";
+import { AccessControl } from "@openzeppelin/contracts/access/AccessControl.sol";
+import { ErrorLibrary } from "../library/ErrorLibrary.sol";
+import { FunctionParameters } from "../FunctionParameters.sol";
+import { AccessRoles } from "./AccessRoles.sol";
+import { IAccessController } from "./IAccessController.sol";
+import { IPortfolio } from "../core/interfaces/IPortfolio.sol";
 
 /**
  * @title AccessController
@@ -14,6 +15,7 @@ import {IAccessController} from "./IAccessController.sol";
  * Utilizes OpenZeppelin's AccessControl for robust role management.
  */
 contract AccessController is AccessControl, AccessRoles, IAccessController {
+  error CallerNotAssetManagementConfig();
   /**
    * @dev Sets up the default admin role to the deployer.
    */
@@ -69,6 +71,11 @@ contract AccessController is AccessControl, AccessRoles, IAccessController {
     _grantRole(REBALANCER_CONTRACT, _setupData._borrowManager);
 
     _grantRole(MINTER_ROLE, _setupData._feeModule);
+
+    _grantRole(
+      ASSET_MANAGER_CONFIG,
+      IPortfolio(_setupData._portfolio).assetManagementConfig()
+    );
   }
 
   /**
@@ -82,6 +89,13 @@ contract AccessController is AccessControl, AccessRoles, IAccessController {
   ) external override onlyAdmin {
     _grantRole(SUPER_ADMIN, _newAccount);
     revokeRole(SUPER_ADMIN, _oldAccount);
+  }
+
+  function setupPositionManagerRole(address _positionManager) external {
+    if (!hasRole(ASSET_MANAGER_CONFIG, msg.sender))
+      revert CallerNotAssetManagementConfig();
+
+    _grantRole(POSITION_MANAGER, _positionManager);
   }
 
   /**

@@ -25,17 +25,21 @@ abstract contract PositionManagerAbstractAlgebra is PositionManagerAbstract {
    * @param _accessController Address of the access controller.
    */
   function PositionManagerAbstractAlgebra_init(
+    address _externalPositionStorage,
     address _nonFungiblePositionManagerAddress,
     address _swapRouter,
     address _protocolConfig,
     address _assetManagerConfig,
-    address _accessController
+    address _accessController,
+    bytes32 _protocolId
   ) internal {
     PositionManagerAbstract__init(
+      _externalPositionStorage,
       _nonFungiblePositionManagerAddress,
       _protocolConfig,
       _assetManagerConfig,
-      _accessController
+      _accessController,
+      _protocolId
     );
 
     router = ISwapRouter(_swapRouter);
@@ -211,7 +215,7 @@ abstract contract PositionManagerAbstractAlgebra is PositionManagerAbstract {
 
     // Deploy and initialize the position wrapper.
     ERC1967Proxy positionWrapperProxy = new ERC1967Proxy(
-      protocolConfig.positionWrapperBaseImplementation(),
+      protocolConfig.getPositionWrapperBaseImplementation(protocolId),
       abi.encodeWithSelector(
         IPositionWrapper.init.selector,
         address(this),
@@ -231,7 +235,7 @@ abstract contract PositionManagerAbstractAlgebra is PositionManagerAbstract {
 
     // Register the new wrapper in the deployed position wrappers list and mark it as a valid wrapper.
     deployedPositionWrappers.push(address(positionWrapper));
-    isWrappedPosition[address(positionWrapper)] = true;
+    externalPositionStorage.addWrappedPosition(address(positionWrapper));
 
     emit NewPositionCreated(address(positionWrapper), _token0, _token1);
 

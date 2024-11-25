@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.17;
 
-import {FunctionParameters} from "../FunctionParameters.sol";
+import { FunctionParameters } from "../FunctionParameters.sol";
 
 /**
  * @title IAccessController
@@ -21,4 +21,6 @@ interface IAccessController {
   ) external;
 
   function hasRole(bytes32 role, address account) external view returns (bool);
+
+  function setupPositionManagerRole(address _positionManager) external;
 }
