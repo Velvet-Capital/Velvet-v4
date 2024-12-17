@@ -16,6 +16,8 @@ import "./ExponentialNoError.sol";
  * @dev Provides functions to get balances, handle markets, and process loans within the Venus protocol.
  */
 contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
+  address immutable ROUTER_ADDRESS = 0x1b81D678ffb9C0263b24A97847620C99d213eB14;
+
   /**
    * @dev Struct to hold local variables for calculating account liquidity,
    *      avoiding stack-depth limits. It contains balances, collateral, and LTV information.
@@ -149,6 +151,45 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
     data = abi.encodeCall(
       IERC20Upgradeable.approve,
       (_toApprove, _amountToApprove) // Encode the data for approving the token transfer
+    );
+  }
+
+  function withdraw(
+    address,
+    address,
+    uint256 amount
+  ) public pure returns (bytes memory data) {
+    data = abi.encodeWithSelector(
+      bytes4(keccak256("redeemTokens(uint)")),
+      amount
+    );
+  }
+
+  function swapTokens(
+    address tokenIn,
+    address tokenOut,
+    address recipient,
+    uint256 amountIn,
+    uint256 minAmountOut,
+    uint256 fee
+  ) public view returns (bytes memory data) {
+    bytes memory path = abi.encodePacked(
+      tokenIn, // Address of the input token
+      fee, // Pool fee (0.3%)
+      tokenOut // Address of the output token
+    );
+
+    bytes memory encodedParams = abi.encode(
+      path,
+      recipient,
+      block.timestamp + 15,
+      amountIn,
+      minAmountOut
+    );
+
+    data = abi.encodeWithSelector(
+      bytes4(keccak256("exactInput((bytes,address,uint256,uint256,uint256))")),
+      encodedParams
     );
   }
 
@@ -633,6 +674,82 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
     }
   }
 
+  function loanProcessingDex(
+    address vault,
+    address executor,
+    address controller,
+    address receiver,
+    address[] memory lendTokens,
+    uint256 totalCollateral,
+    uint fee,
+    FunctionParameters.FlashLoanData memory flashData
+  ) external view returns (MultiTransaction[] memory transactions, uint256) {
+    // Process swaps and transfers during the loan
+    (
+      MultiTransaction[] memory swapTransactions,
+      uint256 totalFlashAmount
+    ) = swapAndTransferTransactionsUsingDex(vault, executor, flashData);
+
+    // Handle repayment transactions
+    MultiTransaction[] memory repayLoanTransaction = repayTransactions(
+      executor,
+      vault,
+      flashData
+    );
+
+    // Handle withdrawal transactions
+    MultiTransaction[]
+      memory withdrawTransaction = withdrawTransactionsUsingDex(
+        executor,
+        vault,
+        controller,
+        receiver,
+        lendTokens,
+        totalCollateral,
+        fee,
+        flashData
+      );
+
+    // Combine all transactions into one array
+    transactions = new MultiTransaction[](
+      swapTransactions.length +
+        repayLoanTransaction.length +
+        withdrawTransaction.length
+    );
+    uint256 count;
+
+    // Add swap transactions to the final array
+    for (uint i = 0; i < swapTransactions.length; ) {
+      transactions[count].to = swapTransactions[i].to;
+      transactions[count].txData = swapTransactions[i].txData;
+      count++;
+      unchecked {
+        ++i;
+      }
+    }
+
+    // Add repay transactions to the final array
+    for (uint i = 0; i < repayLoanTransaction.length; ) {
+      transactions[count].to = repayLoanTransaction[i].to;
+      transactions[count].txData = repayLoanTransaction[i].txData;
+      count++;
+      unchecked {
+        ++i;
+      }
+    }
+
+    // Add withdrawal transactions to the final array
+    for (uint i = 0; i < withdrawTransaction.length; ) {
+      transactions[count].to = withdrawTransaction[i].to;
+      transactions[count].txData = withdrawTransaction[i].txData;
+      count++;
+      unchecked {
+        ++i;
+      }
+    }
+    return (transactions, totalFlashAmount); // Return the final array of transactions and total flash loan amount
+  }
+
   /**
    * @notice Processes a loan by handling swaps, transfers, repayments, and withdrawals.
    * @param vault The address of the vault.
@@ -720,6 +837,88 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
     }
 
     return (transactions, totalFlashAmount); // Return the final array of transactions and total flash loan amount
+  }
+
+  /**
+   * @notice Internal function to handle swaps and transfers during loan processing.
+   * @param vault The address of the vault.
+   * @param flashData A struct containing flash loan data.
+   * @return transactions An array of transactions to execute.
+   * @return totalFlashAmount The total amount of flash loan used.
+   */
+  function swapAndTransferTransactionsUsingDex(
+    address vault,
+    address executor,
+    FunctionParameters.FlashLoanData memory flashData
+  )
+    internal
+    view
+    returns (MultiTransaction[] memory transactions, uint256 totalFlashAmount)
+  {
+    uint256 tokenLength = flashData.debtToken.length; // Get the number of debt tokens
+    transactions = new MultiTransaction[](tokenLength * 3); // Initialize the transactions array
+    uint count;
+
+    // Loop through the debt tokens to handle swaps and transfers
+    for (uint i; i < tokenLength; ) {
+      // Check if the flash loan token is different from the debt token
+      if (flashData.flashLoanToken != flashData.debtToken[i]) {
+        // Transfer the flash loan token to the vault
+        transactions[count].to = flashData.flashLoanToken;
+        transactions[count].txData = abi.encodeWithSelector(
+          bytes4(keccak256("transfer(address,uint256)")),
+          vault, // recipient
+          flashData.flashLoanAmount[i]
+        );
+        count++;
+
+        //Vault Approves the token to dex
+        transactions[count].to = executor;
+        transactions[count].txData = abi.encodeWithSelector(
+          bytes4(keccak256("vaultInteraction(address,bytes)")),
+          flashData.flashLoanToken, // recipient
+          approve(ROUTER_ADDRESS, flashData.flashLoanAmount[i]) //router
+        );
+        count++;
+
+        // Swap the token using the solver handler
+        transactions[count].to = executor;
+        transactions[count].txData = abi.encodeWithSelector(
+          bytes4(keccak256("vaultInteraction(address,bytes)")),
+          ROUTER_ADDRESS,
+          swapTokens(
+            flashData.flashLoanToken,
+            flashData.debtToken[i],
+            vault,
+            flashData.flashLoanAmount[i],
+            flashData.debtRepayAmount[i],
+            3000
+          )
+        );
+        count++;
+      }
+      // Handle the case where the flash loan token is the same as the debt token
+      else {
+        // Transfer the token directly to the vault
+        transactions[count].to = flashData.flashLoanToken;
+        transactions[count].txData = abi.encodeWithSelector(
+          bytes4(keccak256("transfer(address,uint256)")),
+          vault, // recipient
+          flashData.flashLoanAmount[i]
+        );
+        count++;
+      }
+
+      totalFlashAmount += flashData.flashLoanAmount[i]; // Update the total flash loan amount
+      unchecked {
+        ++i;
+      }
+    }
+    // Resize the transactions array to remove unused entries
+    uint unusedLength = ((tokenLength * 2) - count);
+    assembly {
+      mstore(transactions, sub(mload(transactions), unusedLength))
+    }
   }
 
   /**
@@ -823,6 +1022,97 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
         repay(flashData.debtToken[i], vault, amountToRepay)
       );
       count++;
+      unchecked {
+        ++i;
+      }
+    }
+  }
+
+  /**
+   * @notice Internal function to handle withdrawal transactions during loan processing.
+   * @param executor The address of the executor.
+   * @param user The address of the user account.
+   * @param controller The address of the Venus Comptroller.
+   * @param receiver The address of the receiver.
+   * @param lendingTokens The array of addresses representing lent assets.
+   * @param totalCollateral The total collateral value.
+   * @param fee The fee for the transaction.
+   * @param flashData A struct containing flash loan data.
+   * @return transactions An array of transactions to execute.
+   */
+  function withdrawTransactionsUsingDex(
+    address executor,
+    address user,
+    address controller,
+    address receiver,
+    address[] memory lendingTokens,
+    uint256 totalCollateral,
+    uint256 fee,
+    FunctionParameters.FlashLoanData memory flashData
+  ) internal view returns (MultiTransaction[] memory transactions) {
+    uint256 amountLength = flashData.debtRepayAmount.length; // Get the number of repayment amounts
+    transactions = new MultiTransaction[](
+      amountLength * 3 * lendingTokens.length
+    ); // Initialize the transactions array
+    uint256 count; // Count for the transactions
+    // Loop through the repayment amounts to handle withdrawals
+    for (uint i = 0; i < amountLength; ) {
+      // Get the amounts to sell based on the collateral
+      uint256[] memory sellAmounts = getCollateralAmountToSell(
+        user,
+        controller,
+        flashData.protocolTokens[i],
+        lendingTokens,
+        flashData.debtRepayAmount[i],
+        fee,
+        totalCollateral,
+        flashData.bufferUnit
+      );
+      address _user = user;
+      address _receiver = receiver;
+      address _executor = executor;
+      // Loop through the lending tokens to process each one
+      for (uint j = 0; j < lendingTokens.length; ) {
+
+        address underlying = IVenusPool(lendingTokens[i]).underlying();
+
+        // withdraw token of vault
+        transactions[count].to = _executor;
+        transactions[count].txData = abi.encodeWithSelector(
+          bytes4(keccak256("vaultInteraction(address,bytes)")),
+          lendingTokens[i],
+          withdraw(underlying,_user,sellAmounts[j])
+        );
+        count++;
+
+        // Approve the collateral underlying token for the protocol
+        transactions[count].to = _executor;
+        transactions[count].txData = abi.encodeWithSelector(
+          bytes4(keccak256("vaultInteraction(address,bytes)")),
+          underlying,
+          approve(ROUTER_ADDRESS, sellAmounts[j])
+        );
+        count++;
+
+        //Swap the token and transfer it to the receiver
+        transactions[count].to = _executor;
+        transactions[count].txData = abi.encodeWithSelector(
+          bytes4(keccak256("vaultInteraction(address,bytes)")),
+          ROUTER_ADDRESS,
+          swapTokens(
+            underlying,
+            flashData.flashLoanToken,
+            _receiver,
+            sellAmounts[j],
+            0,
+            3000
+          )
+        );
+        count++;
+        unchecked {
+          ++j;
+        }
+      }
       unchecked {
         ++i;
       }

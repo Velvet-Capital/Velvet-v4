@@ -896,7 +896,7 @@ contract PortfolioCalculations is ExponentialNoError {
         borrowedPortion[i],
         flashLoanAmount[i],
         underlyingTokens[i]
-      ) = calculateTokenDetails(borrowedTokens[i], params);
+      ) = calculateAaveTokenDetails(borrowedTokens[i], params);
     }
   }
 

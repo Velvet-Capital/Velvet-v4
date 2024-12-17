@@ -38,7 +38,7 @@ interface IAssetHandler {
   function approve(
     address pool,
     uint256 borrowAmount
-  ) external pure returns (bytes memory data);
+  ) external view returns (bytes memory data);
 
   function getAllProtocolAssets(
     address account,
