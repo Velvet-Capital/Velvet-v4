@@ -211,4 +211,6 @@ library ErrorLibrary {
   error BorrowTokenLimitExceeded();
   // @notice Thrown when flash loan functionality is not active for the portfolio
   error FlashLoanIsInactive();
+  // @notice Thrown when flash laon is not initiater by borrow manager contract
+  error InvalidLoanInitiator();
 }

@@ -31,7 +31,7 @@ import {
   FeeModule,
   UniswapV2Handler,
   TokenBalanceLibrary,
-  BorrowManager,
+  BorrowManagerAave,
   AssetManagementConfig,
   AccessControl,
   EnsoHandler,
@@ -60,7 +60,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
   let rebalancing: any;
   let rebalancing1: any;
   let protocolConfig: ProtocolConfig;
-  let borrowManager: BorrowManager;
+  let borrowManager: BorrowManagerAave;
   let ensoHandler: EnsoHandler;
   let tokenBalanceLibrary: TokenBalanceLibrary;
   let txObject;
@@ -132,7 +132,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
       const assetManagementConfig = await AssetManagementConfig.deploy();
       await assetManagementConfig.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManager");
+      const BorrowManager = await ethers.getContractFactory("BorrowManagerAave");
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 

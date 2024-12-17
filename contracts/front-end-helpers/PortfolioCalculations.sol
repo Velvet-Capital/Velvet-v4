@@ -2,22 +2,25 @@
 
 pragma solidity 0.8.17;
 
-import { IPortfolio } from "../core/interfaces/IPortfolio.sol";
-import { ITokenExclusionManager } from "../core/interfaces/ITokenExclusionManager.sol";
-import { IFeeModule } from "../fee/IFeeModule.sol";
-import { IAssetManagementConfig } from "../config/assetManagement/IAssetManagementConfig.sol";
-import { IProtocolConfig } from "../config/protocol/IProtocolConfig.sol";
-import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import { IERC20MetadataUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
-import { IPriceOracle } from "../../contracts/oracle/IPriceOracle.sol";
-import { IVenusPool } from "../core/interfaces/IVenusPool.sol";
-import { IThena } from "../core/interfaces/IThena.sol";
-import { IAssetHandler } from "../core/interfaces/IAssetHandler.sol";
-import { FunctionParameters } from "../FunctionParameters.sol";
-import { IVenusComptroller, IVAIController } from "../handler/Venus/IVenusComptroller.sol";
-import { ExponentialNoError } from "../handler/Venus/ExponentialNoError.sol";
-import { ErrorLibrary } from "../library/ErrorLibrary.sol";
-import { TokenBalanceLibrary } from "../core/calculations/TokenBalanceLibrary.sol";
+import {IPortfolio} from "../core/interfaces/IPortfolio.sol";
+import {ITokenExclusionManager} from "../core/interfaces/ITokenExclusionManager.sol";
+import {IFeeModule} from "../fee/IFeeModule.sol";
+import {IAssetManagementConfig} from "../config/assetManagement/IAssetManagementConfig.sol";
+import {IProtocolConfig} from "../config/protocol/IProtocolConfig.sol";
+import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import {IERC20MetadataUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
+import {IPriceOracle} from "../../contracts/oracle/IPriceOracle.sol";
+import {IVenusPool} from "../core/interfaces/IVenusPool.sol";
+import {IThena} from "../core/interfaces/IThena.sol";
+import {IAssetHandler} from "../core/interfaces/IAssetHandler.sol";
+import {FunctionParameters} from "../FunctionParameters.sol";
+import {IVenusComptroller, IVAIController} from "../handler/Venus/IVenusComptroller.sol";
+import {ExponentialNoError} from "../handler/Venus/ExponentialNoError.sol";
+import {ErrorLibrary} from "../library/ErrorLibrary.sol";
+import {TokenBalanceLibrary} from "../core/calculations/TokenBalanceLibrary.sol";
+import {IAavePriceOracle} from "../handler/Aave/IAavePriceOracle.sol";
+import {IPoolDataProvider} from "../handler/Aave/IPoolDataProvider.sol";
+import {IAaveToken} from "../handler/Aave/IAaveToken.sol";
 
 contract PortfolioCalculations is ExponentialNoError {
   uint256 internal constant ONE_ETH_IN_WEI = 10 ** 18;
@@ -239,12 +242,15 @@ contract PortfolioCalculations is ExponentialNoError {
         afterFeeAmount -= assetManagerFee;
       }
     }
+
+    address[] memory _tokens = portfolio.getTokens();
     address _vault = portfolio.vault();
 
     // Get controllers data for the vault
     TokenBalanceLibrary.ControllerData[]
       memory controllersData = TokenBalanceLibrary.getControllersData(
         _vault,
+        _tokens,
         _protocolConfig
       );
 
@@ -490,9 +496,7 @@ contract PortfolioCalculations is ExponentialNoError {
     uint256 performanceIncrease = _currentPrice - _highWaterMark;
     uint256 performanceFee = (performanceIncrease *
       _totalSupply *
-      _feePercentage) /
-      ONE_ETH_IN_WEI /
-      TOTAL_WEIGHT;
+      _feePercentage) / ONE_ETH_IN_WEI / TOTAL_WEIGHT;
 
     tokensToMint =
       (performanceFee * _totalSupply) /
@@ -532,7 +536,7 @@ contract PortfolioCalculations is ExponentialNoError {
     address _flashLoanProtocolToken,
     address _comptroller,
     uint256 _borrowToRepay,
-    uint256 bufferUnit //Buffer unit is the buffer percentage in terms of 1/10000
+    uint256 _bufferUnit //Buffer unit is the buffer percentage in terms of 1/10000
   ) external view returns (uint256 flashLoanAmount) {
     // Get the oracle price for the borrowed token
     uint256 oraclePrice = IVenusComptroller(_comptroller)
@@ -556,7 +560,37 @@ contract PortfolioCalculations is ExponentialNoError {
     // Add a 0.01% buffer to the flash loan amount
     flashLoanAmount =
       flashLoanAmount +
-      ((flashLoanAmount * bufferUnit) / 10_000);
+      ((flashLoanAmount * _bufferUnit) / 10_000);
+  }
+
+  function calculateAaveFlashLoanAmountForRepayment(
+    address _borrowToken,
+    uint256 _borrowToRepay,
+    uint256 _bufferUnit
+  ) external view returns (uint256 flashLoanAmount) {
+    // Get the oracle price for the borrowed token
+    uint256 _oraclePrice = IAavePriceOracle(
+      0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7
+    ).getAssetPrice(_borrowToken);
+
+    // Calculate the total price of the borrowed amount
+    uint256 borrowTokenPrice = _oraclePrice * _borrowToRepay;
+
+    // Get the oracle price for the flash loan token
+    uint256 _flashLoanTokenPrice = IAavePriceOracle(
+      0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7
+    ).getAssetPrice(_borrowToken);
+
+    // Calculate the flash loan amount needed
+    flashLoanAmount =
+      (borrowTokenPrice * 10 ** 18) /
+      _flashLoanTokenPrice /
+      10 ** 18;
+
+    // Add a 0.01% buffer to the flash loan amount
+    flashLoanAmount =
+      flashLoanAmount +
+      ((flashLoanAmount * _bufferUnit) / 10_000);
   }
 
   function getUserTokenClaimBalance(
@@ -626,6 +660,7 @@ contract PortfolioCalculations is ExponentialNoError {
     address _controller,
     address _venusAssetHandler,
     address _protocolToken,
+    address[] memory _portfolioTokens,
     uint256 _debtRepayAmount,
     uint256 feeUnit, //Flash loan fee unit
     uint256 bufferUnit //Buffer unit is the buffer percentage in terms of 1/100000
@@ -636,7 +671,8 @@ contract PortfolioCalculations is ExponentialNoError {
       FunctionParameters.TokenAddresses memory tokenAddresses
     ) = IAssetHandler(_venusAssetHandler).getUserAccountData(
         _user,
-        _controller
+        _controller,
+        _portfolioTokens
       );
 
     amounts = new uint256[](tokenAddresses.lendTokens.length);
@@ -649,7 +685,7 @@ contract PortfolioCalculations is ExponentialNoError {
       .oracle()
       .getUnderlyingPrice(_protocolToken);
 
-    Exp memory oraclePrice = Exp({ mantissa: oraclePriceMantissa });
+    Exp memory oraclePrice = Exp({mantissa: oraclePriceMantissa});
     // sumBorrowPlusEffects += oraclePrice * borrowBalance
     uint256 sumBorrowPlusEffects;
     sumBorrowPlusEffects = mul_ScalarTruncateAddUInt(
@@ -693,6 +729,194 @@ contract PortfolioCalculations is ExponentialNoError {
     uint256 debtAmountWithFee = _debtRepayAmount + feeAmount;
     debtValue = (debtAmountWithFee * totalDebt * 10 ** 18) / borrowBalance;
     percentageToRemove = debtValue / totalCollateral;
+  }
+
+  function getAaveCollateralAmountToSell(
+    address _user,
+    address _controller,
+    address _aaveAssetHandler,
+    address _protocolToken,
+    address[] memory _portfolioTokens,
+    uint256 _debtRepayAmount,
+    uint256 feeUnit, //Flash loan fee unit
+    uint256 bufferUnit
+  ) public view returns (uint256[] memory amounts) {
+    (
+      FunctionParameters.AccountData memory accountData,
+      FunctionParameters.TokenAddresses memory tokenAddresses
+    ) = IAssetHandler(_aaveAssetHandler).getUserAccountData(
+        _user,
+        _controller,
+        _portfolioTokens
+      );
+
+    amounts = new uint256[](tokenAddresses.lendTokens.length);
+
+    //Get borrow balance for _protocolToken
+    address _underlyingToken = IAaveToken(_protocolToken)
+      .UNDERLYING_ASSET_ADDRESS();
+    (, , uint currentVariableDebt, , , , , , ) = IPoolDataProvider(
+      0x7F23D86Ee20D869112572136221e173428DD740B
+    ).getUserReserveData(_underlyingToken, _user);
+
+    //Convert underlyingToken to 18 decimal
+    uint borrowBalance = currentVariableDebt *
+      10 ** (18 - IERC20MetadataUpgradeable(_underlyingToken).decimals());
+
+
+    address _account = _user;
+    //Get price for _protocolToken token
+    uint _oraclePrice = IAavePriceOracle(
+      0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7
+    ).getAssetPrice(_underlyingToken);
+    //Get price for borrow Balance (amount * price)
+
+    uint _tokenPrice = (borrowBalance * _oraclePrice) / 10 ** 18;
+
+    //calculateDebtAndPercentage
+    (, uint256 percentageToRemove) = calculateDebtAndPercentage(
+      _debtRepayAmount,
+      feeUnit,
+      _tokenPrice,
+      borrowBalance,
+      accountData.totalCollateral
+    );
+
+    // Calculate the amounts to sell for each lending token
+    for (uint256 i; i < tokenAddresses.lendTokens.length; i++) {
+      uint256 balance = IERC20Upgradeable(tokenAddresses.lendTokens[i])
+        .balanceOf(_account);
+      uint256 amountToSell = (balance * percentageToRemove);
+      amountToSell = amountToSell + ((amountToSell * bufferUnit) / 100000); // Buffer of 0.001%
+      amounts[i] = amountToSell / 10 ** 18; // Calculate the amount to sell
+    }
+  }
+
+  function calculateAaveBorrowedPortionAndFlashLoanDetails(
+    address _portfolio,
+    address _protocolToken,
+    address _vault,
+    address _comptroller,
+    address _aaveAssetHandler,
+    uint256 _portfolioTokenAmount,
+    uint256 _flashLoanBufferUnit
+  )
+    external
+    view
+    returns (
+      uint256[] memory borrowedPortion,
+      uint256[] memory flashLoanAmount,
+      address[] memory underlyingTokens,
+      address[] memory borrowedTokens
+    )
+  {
+    return
+      _calculateAaveDetails(
+        _portfolio,
+        _protocolToken,
+        _vault,
+        _comptroller,
+        _aaveAssetHandler,
+        _portfolioTokenAmount,
+        _flashLoanBufferUnit
+      );
+  }
+
+  function _calculateAaveDetails(
+    address _portfolio,
+    address _protocolToken,
+    address _vault,
+    address _comptroller,
+    address _aaveAssetHandler,
+    uint256 _portfolioTokenAmount,
+    uint256 _flashLoanBufferUnit
+  )
+    internal
+    view
+    returns (
+      uint256[] memory borrowedPortion,
+      uint256[] memory flashLoanAmount,
+      address[] memory underlyingTokens,
+      address[] memory borrowedTokens
+    )
+  {
+    (
+      uint256 afterFeeAmount,
+      uint256 totalSupplyPortfolio
+    ) = getAfterFeeAmountAndSupply(_portfolio, _portfolioTokenAmount);
+    borrowedTokens = IAssetHandler(_aaveAssetHandler).getBorrowedTokens(
+      _vault,
+      _comptroller
+    );
+
+    address _underlyingToken = IAaveToken(_protocolToken)
+      .UNDERLYING_ASSET_ADDRESS();
+
+    address protocolToken = _protocolToken;
+    address vaultAddress = _vault;
+    address comptrollerAddress = _comptroller;
+    uint256 tokenCount = borrowedTokens.length;
+    borrowedPortion = new uint256[](tokenCount);
+    flashLoanAmount = new uint256[](tokenCount);
+    underlyingTokens = new address[](tokenCount);
+
+    CalculationParams memory params = CalculationParams({
+      protocolToken: protocolToken,
+      vault: vaultAddress,
+      comptroller: comptrollerAddress,
+      afterFeeAmount: afterFeeAmount,
+      totalSupplyPortfolio: totalSupplyPortfolio,
+      flashLoanTokenPrice: IAavePriceOracle(
+        0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7
+      ).getAssetPrice(_underlyingToken),
+      flashLoanBufferUnit: _flashLoanBufferUnit
+    });
+
+    for (uint i = 0; i < tokenCount; i++) {
+      (
+        borrowedPortion[i],
+        flashLoanAmount[i],
+        underlyingTokens[i]
+      ) = calculateTokenDetails(borrowedTokens[i], params);
+    }
+  }
+
+  function calculateAaveTokenDetails(
+    address borrowedToken,
+    CalculationParams memory params
+  )
+    internal
+    view
+    returns (
+      uint256 borrowedPortion,
+      uint256 flashLoanAmount,
+      address underlyingToken
+    )
+  {
+    underlyingToken = IAaveToken(borrowedToken).UNDERLYING_ASSET_ADDRESS();
+    uint256 oraclePrice = IAavePriceOracle(
+      0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7
+    ).getAssetPrice(underlyingToken);
+    (, , uint256 borrowBalance, , , , , , ) = IPoolDataProvider(
+      0x7F23D86Ee20D869112572136221e173428DD740B
+    ).getUserReserveData(underlyingToken, params.vault);
+    borrowedPortion =
+      (borrowBalance * params.afterFeeAmount) /
+      params.totalSupplyPortfolio;
+
+    uint256 totalPrice = (borrowBalance * params.afterFeeAmount * oraclePrice) /
+      params.totalSupplyPortfolio;
+    uint256 _amount = (totalPrice * 10 ** 18) /
+      params.flashLoanTokenPrice /
+      10 ** 18;
+
+    if (borrowedToken != params.protocolToken) {
+      flashLoanAmount =
+        _amount +
+        ((_amount * params.flashLoanBufferUnit) / 10_000); //Building a buffer of 0.01%
+    } else {
+      flashLoanAmount = _amount;
+    }
   }
 
   function calculateBorrowedPortionAndFlashLoanDetails(

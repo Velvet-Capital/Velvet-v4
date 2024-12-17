@@ -36,7 +36,7 @@ import {
   EnsoHandler,
   EnsoHandlerBundled,
   TokenBalanceLibrary,
-  BorrowManager,
+  BorrowManagerVenus,
   AccessController__factory,
   TokenExclusionManager__factory,
 } from "../../typechain";
@@ -65,7 +65,7 @@ describe.only("Tests for Deposit", () => {
   let portfolioContract: Portfolio;
   let portfolioFactory: PortfolioFactory;
   let swapHandler: UniswapV2Handler;
-  let borrowManager: BorrowManager;
+  let borrowManager: BorrowManagerVenus;
   let tokenBalanceLibrary: TokenBalanceLibrary;
   let rebalancing: any;
   let rebalancing1: any;
@@ -156,7 +156,7 @@ describe.only("Tests for Deposit", () => {
       const assetManagementConfig = await AssetManagementConfig.deploy();
       await assetManagementConfig.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManager");
+      const BorrowManager = await ethers.getContractFactory("BorrowManagerVenus");
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 

@@ -32,7 +32,7 @@ import {
   VelvetSafeModule,
   FeeModule,
   TokenBalanceLibrary,
-  BorrowManager,
+  BorrowManagerAave,
   UniswapV2Handler,
   DepositBatchExternalPositions,
   DepositManagerExternalPositions,
@@ -66,7 +66,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
   let ensoHandler: EnsoHandler;
   let depositBatch: DepositBatchExternalPositions;
   let depositManager: DepositManagerExternalPositions;
-  let borrowManager: BorrowManager;
+  let borrowManager: BorrowManagerAave;
   let tokenBalanceLibrary: TokenBalanceLibrary;
   let withdrawBatch: WithdrawBatch;
   let withdrawManager: WithdrawManager;
@@ -223,7 +223,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
       const assetManagementConfigBase = await AssetManagementConfig.deploy();
       await assetManagementConfigBase.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManager");
+      const BorrowManager = await ethers.getContractFactory("BorrowManagerAave");
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 

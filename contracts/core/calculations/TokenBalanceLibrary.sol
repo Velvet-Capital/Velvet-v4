@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import { ErrorLibrary } from "../../library/ErrorLibrary.sol";
-import { IProtocolConfig } from "../../config/protocol/IProtocolConfig.sol";
-import { IAssetHandler } from "../interfaces/IAssetHandler.sol";
-import { FunctionParameters } from "../../FunctionParameters.sol";
+import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import {ErrorLibrary} from "../../library/ErrorLibrary.sol";
+import {IProtocolConfig} from "../../config/protocol/IProtocolConfig.sol";
+import {IAssetHandler} from "../interfaces/IAssetHandler.sol";
+import {FunctionParameters} from "../../FunctionParameters.sol";
 
 /**
  * @title Token Balance Library
@@ -32,18 +32,19 @@ library TokenBalanceLibrary {
    */
   function getControllersData(
     address vault,
+    address[] memory portfolioTokens,
     IProtocolConfig _protocolConfig
   ) public view returns (ControllerData[] memory controllersData) {
     address[] memory controllers = _protocolConfig.getSupportedControllers();
     controllersData = new ControllerData[](controllers.length);
 
-    for (uint256 i; i < controllers.length;) {
+    for (uint256 i; i < controllers.length; ) {
       address controller = controllers[i];
       IAssetHandler assetHandler = IAssetHandler(
         _protocolConfig.assetHandlers(controller)
       );
       (FunctionParameters.AccountData memory accountData, ) = assetHandler
-        .getUserAccountData(vault, controller);
+        .getUserAccountData(vault, controller, portfolioTokens);
 
       uint256 unusedCollateralPercentage;
       if (accountData.totalCollateral == 0) {
@@ -58,7 +59,9 @@ library TokenBalanceLibrary {
         controller: controller,
         unusedCollateralPercentage: unusedCollateralPercentage
       });
-      unchecked { ++i; }
+      unchecked {
+        ++i;
+      }
     }
   }
 
@@ -73,11 +76,13 @@ library TokenBalanceLibrary {
     ControllerData[] memory controllersData,
     address controller
   ) internal pure returns (ControllerData memory) {
-    for (uint256 i; i < controllersData.length;) {
+    for (uint256 i; i < controllersData.length; ) {
       if (controllersData[i].controller == controller) {
         return controllersData[i];
       }
-      unchecked { ++i; }
+      unchecked {
+        ++i;
+      }
     }
     revert ErrorLibrary.ControllerDataNotFound();
   }
@@ -106,7 +111,11 @@ library TokenBalanceLibrary {
     uint256 portfolioLength = portfolioTokens.length;
     vaultBalances = new uint256[](portfolioLength); // Initializes the array to hold fetched balances.
 
-    controllersData = getControllersData(_vault, _protocolConfig);
+    controllersData = getControllersData(
+      _vault,
+      portfolioTokens,
+      _protocolConfig
+    );
 
     for (uint256 i; i < portfolioLength; ) {
       vaultBalances[i] = _getAdjustedTokenBalance(
@@ -153,7 +162,7 @@ library TokenBalanceLibrary {
       tokenBalance = _getTokenBalanceOf(_token, _vault);
     }
   }
-  
+
   /**
    * @notice Fetches the balance of a specific token held in a given vault.
    * @dev Retrieves the token balance using the ERC20 `balanceOf` function.

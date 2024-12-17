@@ -35,7 +35,7 @@ import {
   DepositBatch,
   DepositManager,
   TokenBalanceLibrary,
-  BorrowManager,
+  BorrowManagerAave,
   TokenExclusionManager,
   TokenExclusionManager__factory,
   WithdrawBatch,
@@ -66,7 +66,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
   let depositManager: DepositManager;
   let withdrawBatch: WithdrawBatch;
   let withdrawManager: WithdrawManager;
-  let borrowManager: BorrowManager;
+  let borrowManager: BorrowManagerAave;
   let tokenBalanceLibrary: TokenBalanceLibrary;
   let portfolioContract: Portfolio;
   let portfolioFactory: PortfolioFactory;
@@ -179,7 +179,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
       const assetManagementConfig = await AssetManagementConfig.deploy();
       await assetManagementConfig.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManager");
+      const BorrowManager = await ethers.getContractFactory("BorrowManagerAave");
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 

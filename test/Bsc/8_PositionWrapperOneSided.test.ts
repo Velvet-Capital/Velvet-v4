@@ -52,7 +52,7 @@ import {
   DepositBatchExternalPositions,
   DepositManagerExternalPositions,
   TokenBalanceLibrary,
-  BorrowManager,
+  BorrowManagerVenus,
   PositionManagerAlgebra,
   AssetManagementConfig,
   AmountCalculationsAlgebra,
@@ -85,7 +85,7 @@ describe.only("Tests for Deposit", () => {
   let portfolioContract: Portfolio;
   let portfolioFactory: PortfolioFactory;
   let swapHandler: UniswapV2Handler;
-  let borrowManager: BorrowManager;
+  let borrowManager: BorrowManagerVenus;
   let tokenBalanceLibrary: TokenBalanceLibrary;
   let venusAssetHandler: VenusAssetHandler;
   let rebalancing: any;
@@ -238,7 +238,7 @@ describe.only("Tests for Deposit", () => {
       const tokenExclusionManagerDefault = await TokenExclusionManager.deploy();
       await tokenExclusionManagerDefault.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManager");
+      const BorrowManager = await ethers.getContractFactory("BorrowManagerVenus");
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 

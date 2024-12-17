@@ -211,6 +211,7 @@ export const ArbitrumOne: ChainAddresses = {
   CAKE: "0x1b896893dfc86bb67Cf57767298b9073D2c1bA2c",
   SUSHI: "0xd4d42f0b6def4ce0383636770ef773390d85c61a",
   MIM: "0xFEa7a6a0B346362BF88A9e4A88416B77a57D6c2A",
+  FRAX: "0x17FC002b466eEc40DaE837Fc4bE5c67993ddBd6F",
 
   // Compound Finance v3
   cUSDCev3: "0xA5EDBDD9646f8dFF606d7448e414884C7d905dCA",
@@ -223,6 +224,12 @@ export const ArbitrumOne: ChainAddresses = {
   aArbLINK: "0x191c10Aa4AF7C30e871E70C95dB0E4eb77237530",
   aArbWBTC: "0x078f358208685046a11C85e8ad32895DED33A249",
   aArbWETH: "0xe50fA9b3c56FfB159cB0FCA61F5c9D750e8128c8",
+  aArbARB: "0x6533afac2E7BCCB20dca161449A13A32D391fb00",
+
+  //Aave Pool/DataProvider addresses
+  aavePool : "0x794a61358D6845594F94dc1DB02A252b5b4814aD",
+  aavePoolDataProvider : "0x7F23D86Ee20D869112572136221e173428DD740B",
+  aaveOracle : "0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7",
 
   //Beefy
   mooHopEth: "0xf6a1284Dc2ce247Bca885ac4F36b37E91d3bD032",
@@ -286,6 +293,7 @@ export const ArbitrumOne: ChainAddresses = {
   gnosisMultisendLibrary: "0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761",
   gnosisSafeProxyFactory: "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
   moduleProxyFactory: "0x76E2cFc1F5Fa8F6a5b3fC4c8F4788F0116861F9B",
+
 
   //External Swap URL
   zeroExUrl: "https://arbitrum.api.0x.org/swap/v1/quote?",

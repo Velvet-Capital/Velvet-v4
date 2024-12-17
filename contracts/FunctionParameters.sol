@@ -182,7 +182,7 @@ library FunctionParameters {
    */
   struct RepayParams {
     address _factory;
-    address _token0; //USDT
+    address _token0; //USDT   --> need to change token0 and token1 to single address
     address _token1; //USDC
     address _flashLoanToken;
     address[] _debtToken;

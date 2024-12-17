@@ -30,7 +30,7 @@ import {
   VelvetSafeModule,
   FeeModule,
   TokenBalanceLibrary,
-  BorrowManager,
+  BorrowManagerAave,
   FeeModule__factory,
   UniswapV2Handler,
   AssetManagementConfig,
@@ -62,7 +62,7 @@ describe.only("Tests for Upgradeability", () => {
   let rebalancing: any;
   let rebalancing1: any;
   let protocolConfig: ProtocolConfig;
-  let borrowManager: BorrowManager;
+  let borrowManager: BorrowManagerAave;
   let ensoHandler: EnsoHandler;
   let tokenBalanceLibrary: TokenBalanceLibrary;
   let txObject;
@@ -149,7 +149,7 @@ describe.only("Tests for Upgradeability", () => {
       const assetManagementConfig = await AssetManagementConfig.deploy();
       await assetManagementConfig.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManager");
+      const BorrowManager = await ethers.getContractFactory("BorrowManagerAave");
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 

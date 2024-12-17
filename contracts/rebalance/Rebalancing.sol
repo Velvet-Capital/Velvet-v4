@@ -4,6 +4,7 @@ pragma solidity 0.8.17;
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/security/ReentrancyGuardUpgradeable.sol";
 import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/proxy/utils/UUPSUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/access/OwnableUpgradeable.sol";
+import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import {ErrorLibrary} from "../library/ErrorLibrary.sol";
 import {IIntentHandler} from "../handler/IIntentHandler.sol";
 import {RebalancingConfig} from "./RebalancingConfig.sol";
@@ -173,6 +174,15 @@ contract Rebalancing is
     // Update the portfolio's token list with new tokens
     portfolio.updateTokenList(_newTokens);
 
+    // Perform token update and weights adjustment based on provided rebalance data
+    _updateWeights(
+      _sellTokens,
+      _newTokens,
+      rebalanceData._sellAmounts,
+      rebalanceData._handler,
+      rebalanceData._callData
+    );
+
     // Initialize a bitmap with 256 slots to handle up to 65,536 unique bit positions
     uint256[256] memory tokenBitmap;
     uint256 tokenLength = _tokens.length;
@@ -194,18 +204,7 @@ contract Rebalancing is
         // Set the bit for this token in the bitmap to mark it as present
         tokenBitmap[index] |= (1 << offset);
       }
-    }
 
-    // Perform token update and weights adjustment based on provided rebalance data
-    _updateWeights(
-      _sellTokens,
-      _newTokens,
-      rebalanceData._sellAmounts,
-      rebalanceData._handler,
-      rebalanceData._callData
-    );
-
-    unchecked {
       // Remove new tokens from the bitmap to avoid unnecessary balance checks
       for (uint256 i; i < _newTokens.length; i++) {
         uint256 bitPos = uint256(keccak256(abi.encodePacked(_newTokens[i]))) %
@@ -285,21 +284,18 @@ contract Rebalancing is
       protocolConfig.assetHandlers(_protocolToken)
     );
 
-    portfolio.vaultInteraction(
-      _debtToken,
-      assetHandler.approve(_protocolToken, 0)
-    );
+    address controller = protocolConfig.marketControllers(_protocolToken); //This will be pool address
 
     // Approve the protocol token to spend the debt token
     portfolio.vaultInteraction(
       _debtToken,
-      assetHandler.approve(_protocolToken, _repayAmount)
+      assetHandler.approve(controller, _repayAmount)
     );
 
     // Repay the debt
     portfolio.vaultInteraction(
-      _protocolToken,
-      assetHandler.repay(_repayAmount)
+      controller,
+      assetHandler.repay(_debtToken, _vault, _repayAmount)
     );
 
     //Check balance not zero
@@ -406,6 +402,7 @@ contract Rebalancing is
    * @param _controller The address of the lending protocol's controller contract.
    */
   function enableCollateralTokens(
+    //Here need to add loop, because for aave it takes only one token at a time
     address[] memory _tokens,
     address _controller
   ) external onlyAssetManager {
@@ -437,10 +434,7 @@ contract Rebalancing is
     );
     for (uint256 i; i < tokensLength; i++) {
       address token = _tokens[i];
-      portfolio.vaultInteraction(
-        protocolConfig.marketControllers(token),
-        assetHandler.exitMarket(token)
-      );
+      portfolio.vaultInteraction(_controller, assetHandler.exitMarket(token));
     }
     emit CollateralTokensDisabled(_tokens, _controller);
   }
@@ -490,11 +484,10 @@ contract Rebalancing is
 
     // Setting token as collateral
     portfolio.vaultInteraction(_controller, assetHandler.enterMarket(_tokens));
-
     // Borrow
     portfolio.vaultInteraction(
       _pool,
-      assetHandler.borrow(_pool, _tokenToBorrow, _amountToBorrow)
+      assetHandler.borrow(_pool, _tokenToBorrow, _vault, _amountToBorrow)
     );
 
     // Get the number of borrowed tokens after the borrow operation

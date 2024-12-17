@@ -27,7 +27,7 @@ import {
   AccessController__factory,
   TokenExclusionManager__factory,
   TokenBalanceLibrary,
-  BorrowManager,
+  BorrowManagerVenus,
   DepositBatch,
   DepositManager,
   WithdrawBatch,
@@ -55,7 +55,7 @@ describe.only("Tests for Deposit", () => {
   let portfolioCalculations: any;
   let tokenExclusionManager: any;
   let tokenExclusionManager1: any;
-  let borrowManager: BorrowManager;
+  let borrowManager: BorrowManagerVenus;
   let ensoHandler: EnsoHandler;
   let depositBatch: DepositBatch;
   let depositManager: DepositManager;
@@ -234,7 +234,7 @@ describe.only("Tests for Deposit", () => {
       venusAssetHandler = await VenusAssetHandler.deploy();
       await venusAssetHandler.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManager");
+      const BorrowManager = await ethers.getContractFactory("BorrowManagerVenus");
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 
@@ -963,7 +963,8 @@ describe.only("Tests for Deposit", () => {
           );
         const userData = await venusAssetHandler.getUserAccountData(
           vault,
-          addresses.corePool_controller
+          addresses.corePool_controller,
+          portfolio.getTokens()
         );
         const lendTokens = userData[1].lendTokens;
 
@@ -1427,7 +1428,8 @@ describe.only("Tests for Deposit", () => {
           );
         const userData = await venusAssetHandler.getUserAccountData(
           vault,
-          addresses.corePool_controller
+          addresses.corePool_controller,
+          portfolio.getTokens()
         );
         const lendTokens = userData[1].lendTokens;
 
@@ -1594,7 +1596,8 @@ describe.only("Tests for Deposit", () => {
 
         const userData = await venusAssetHandler.getUserAccountData(
           vault,
-          addresses.corePool_controller
+          addresses.corePool_controller,
+          portfolio.getTokens()
         );
         const lendTokens = userData[1].lendTokens;
 
@@ -1786,7 +1789,8 @@ describe.only("Tests for Deposit", () => {
 
         const userData = await venusAssetHandler.getUserAccountData(
           vault,
-          addresses.corePool_controller
+          addresses.corePool_controller,
+          portfolio.getTokens()
         );
         const lendTokens = userData[1].lendTokens;
 

@@ -28,7 +28,7 @@ import {
   VelvetSafeModule,
   FeeModule,
   TokenBalanceLibrary,
-  BorrowManager,
+  BorrowManagerVenus,
   AssetManagementConfig,
   AccessControl,
   PriceOracle,
@@ -62,7 +62,7 @@ describe.only("Tests for Portfolio Config", () => {
   let portfolioContract: Portfolio;
   let portfolioFactory: PortfolioFactory;
   let swapHandler: UniswapV2Handler;
-  let borrowManager: BorrowManager;
+  let borrowManager: BorrowManagerVenus;
   let tokenBalanceLibrary: TokenBalanceLibrary;
   let rebalancing: any;
   let rebalancing1: any;
@@ -216,7 +216,7 @@ describe.only("Tests for Portfolio Config", () => {
       const feeModule = await FeeModule.deploy();
       await feeModule.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManager");
+      const BorrowManager = await ethers.getContractFactory("BorrowManagerVenus");
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 

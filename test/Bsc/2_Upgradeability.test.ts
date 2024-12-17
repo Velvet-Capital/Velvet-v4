@@ -28,7 +28,7 @@ import {
   VelvetSafeModule,
   FeeModule,
   TokenBalanceLibrary,
-  BorrowManager,
+  BorrowManagerVenus,
   FeeModule__factory,
   AssetManagementConfig,
   AccessControl,
@@ -54,7 +54,7 @@ describe.only("Tests for Upgradeability", () => {
   let portfolioCalculations: any;
   let portfolioCalculations1: any;
   let assetManagementConfig: AssetManagementConfig;
-  let borrowManager: BorrowManager;
+  let borrowManager: BorrowManagerVenus;
   let tokenBalanceLibrary: TokenBalanceLibrary;
   let portfolioContract: Portfolio;
   let portfolioFactory: PortfolioFactory;
@@ -155,7 +155,7 @@ describe.only("Tests for Upgradeability", () => {
       const assetManagementConfig = await AssetManagementConfig.deploy();
       await assetManagementConfig.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManager");
+      const BorrowManager = await ethers.getContractFactory("BorrowManagerVenus");
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 

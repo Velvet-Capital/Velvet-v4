@@ -25,12 +25,15 @@ interface IAssetHandler {
   function borrow(
     address pool,
     address asset,
+    address onBehalfOf,
     uint256 borrowAmount
-  ) external pure returns (bytes memory data);
+  ) external view returns (bytes memory data);
 
   function repay(
+    address asset,
+    address onBehalfOf,
     uint256 borrowAmount
-  ) external pure returns (bytes memory data);
+  ) external view returns (bytes memory data);
 
   function approve(
     address pool,
@@ -39,7 +42,8 @@ interface IAssetHandler {
 
   function getAllProtocolAssets(
     address account,
-    address comptroller
+    address comptroller,
+    address[] memory portfolioTokens
   )
     external
     view
@@ -47,7 +51,8 @@ interface IAssetHandler {
 
   function getUserAccountData(
     address user,
-    address comptoller
+    address comptoller,
+    address[] memory portfolioTokens
   )
     external
     view
@@ -64,7 +69,8 @@ interface IAssetHandler {
   function getInvestibleBalance(
     address _token,
     address _vault,
-    address _controller
+    address _controller,
+    address[] memory _portfolioTokens
   ) external view returns (uint256);
 
   function loanProcessing(

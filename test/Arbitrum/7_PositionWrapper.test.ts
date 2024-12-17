@@ -23,7 +23,7 @@ import {
   FeeModule,
   UniswapV2Handler,
   TokenBalanceLibrary,
-  BorrowManager,
+  BorrowManagerAave,
   TokenExclusionManager,
   TokenExclusionManager__factory,
   PositionWrapper,
@@ -62,7 +62,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
   let portfolioFactory: PortfolioFactory;
   let swapHandler: UniswapV2Handler;
   let protocolConfig: ProtocolConfig;
-  let borrowManager: BorrowManager;
+  let borrowManager: BorrowManagerAave;
   let tokenBalanceLibrary: TokenBalanceLibrary;
   let positionManager: PositionManagerUniswap;
   let assetManagementConfig: AssetManagementConfig;
@@ -165,7 +165,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
       const positionManagerBaseAddress = await PositionManager.deploy();
       await positionManagerBaseAddress.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManager");
+      const BorrowManager = await ethers.getContractFactory("BorrowManagerAave");
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 

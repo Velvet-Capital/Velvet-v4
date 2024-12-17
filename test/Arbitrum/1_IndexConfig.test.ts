@@ -32,7 +32,7 @@ import {
   UniswapV2Handler,
   AssetManagementConfig,
   TokenBalanceLibrary,
-  BorrowManager,
+  BorrowManagerAave,
   AccessControl,
   TokenExclusionManager,
   TokenExclusionManager__factory,
@@ -56,7 +56,7 @@ describe.only("Tests for Portfolio Config", () => {
   let assetManagementConfig0: AssetManagementConfig;
   let assetManagementConfig1: AssetManagementConfig;
   let assetManagementConfig2: AssetManagementConfig;
-  let borrowManager: BorrowManager;
+  let borrowManager: BorrowManagerAave;
   let tokenBalanceLibrary: TokenBalanceLibrary;
   let accessController0: any;
   let accessController2: any;
@@ -151,7 +151,7 @@ describe.only("Tests for Portfolio Config", () => {
       const assetManagementConfig = await AssetManagementConfig.deploy();
       await assetManagementConfig.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManager");
+      const BorrowManager = await ethers.getContractFactory("BorrowManagerAave");
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 

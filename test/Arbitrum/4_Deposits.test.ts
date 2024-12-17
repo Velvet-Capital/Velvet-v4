@@ -33,7 +33,7 @@ import {
   FeeModule,
   UniswapV2Handler,
   TokenBalanceLibrary,
-  BorrowManager,
+  BorrowManagerAave,
   TokenExclusionManager,
   TokenExclusionManager__factory,
 } from "../../typechain";
@@ -66,7 +66,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
   let rebalancing1: any;
   let rebalancing2: any;
   let protocolConfig: ProtocolConfig;
-  let borrowManager: BorrowManager;
+  let borrowManager: BorrowManagerAave;
   let tokenBalanceLibrary: TokenBalanceLibrary;
   let txObject;
   let owner: SignerWithAddress;
@@ -153,7 +153,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
       const assetManagementConfig = await AssetManagementConfig.deploy();
       await assetManagementConfig.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManager");
+      const BorrowManager = await ethers.getContractFactory("BorrowManagerAave");
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 

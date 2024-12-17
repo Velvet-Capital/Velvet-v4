@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { IAssetHandler } from "../../core/interfaces/IAssetHandler.sol";
-import { IVenusPool } from "../../core/interfaces/IVenusPool.sol";
-import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-4.9.6/interfaces/IERC20Upgradeable.sol";
-import { IVenusComptroller, IVAIController, IPriceOracle } from "./IVenusComptroller.sol";
-import { FunctionParameters } from "../../FunctionParameters.sol";
-import { IThena } from "../../core/interfaces/IThena.sol";
-import { IAlgebraPool } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
+import {IAssetHandler} from "../../core/interfaces/IAssetHandler.sol";
+import {IVenusPool} from "../../core/interfaces/IVenusPool.sol";
+import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/interfaces/IERC20Upgradeable.sol";
+import {IVenusComptroller, IVAIController, IPriceOracle} from "./IVenusComptroller.sol";
+import {FunctionParameters} from "../../FunctionParameters.sol";
+import {IThena} from "../../core/interfaces/IThena.sol";
+import {IAlgebraPool} from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
 import "./ExponentialNoError.sol";
 
 /**
@@ -111,6 +111,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
   function borrow(
     address,
     address,
+    address,
     uint256 borrowAmount
   ) external pure returns (bytes memory data) {
     data = abi.encodeWithSelector(
@@ -124,7 +125,11 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
    * @param borrowAmount The amount of the borrowed asset to repay.
    * @return data The encoded data for repaying the specified amount.
    */
-  function repay(uint256 borrowAmount) public pure returns (bytes memory data) {
+  function repay(
+    address,
+    address,
+    uint256 borrowAmount
+  ) public pure returns (bytes memory data) {
     data = abi.encodeWithSelector(
       bytes4(keccak256("repayBorrow(uint256)")),
       borrowAmount // Encode the data to repay the specified amount
@@ -156,7 +161,8 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
    */
   function getAllProtocolAssets(
     address account,
-    address comptroller
+    address comptroller,
+    address[] memory
   )
     public
     view
@@ -208,7 +214,8 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
    */
   function getUserAccountData(
     address user,
-    address comptroller
+    address comptroller,
+    address[] memory
   )
     public
     view
@@ -433,8 +440,8 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
     // Get the collateral factor from the market
     (, uint collateralFactorMantissa, ) = IVenusComptroller(comptroller)
       .markets(address(asset));
-    vars.collateralFactor = Exp({ mantissa: collateralFactorMantissa });
-    vars.exchangeRate = Exp({ mantissa: vars.exchangeRateMantissa });
+    vars.collateralFactor = Exp({mantissa: collateralFactorMantissa});
+    vars.exchangeRate = Exp({mantissa: vars.exchangeRateMantissa});
 
     // Get the normalized price of the asset
     vars.oraclePriceMantissa = IVenusComptroller(comptroller)
@@ -443,7 +450,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
     if (vars.oraclePriceMantissa == 0) {
       return (lendCount, borrowCount); // Skip if the price is zero
     }
-    vars.oraclePrice = Exp({ mantissa: vars.oraclePriceMantissa });
+    vars.oraclePrice = Exp({mantissa: vars.oraclePriceMantissa});
 
     // Pre-compute a conversion factor from tokens to BNB (normalized price value)
     vars.tokensToDenom = mul_(
@@ -554,12 +561,14 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
   function getInvestibleBalance(
     address _token,
     address _vault,
-    address _controller
+    address _controller,
+    address[] memory portfolioTokens
   ) external view returns (uint256) {
     // Get the account data for the vault
     (FunctionParameters.AccountData memory accountData, ) = getUserAccountData(
       _vault,
-      _controller
+      _controller,
+      portfolioTokens
     );
 
     // Calculate the unused collateral percentage
@@ -656,6 +665,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
     // Handle repayment transactions
     MultiTransaction[] memory repayLoanTransaction = repayTransactions(
       executor,
+      vault,
       flashData
     );
 
@@ -785,17 +795,17 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
    */
   function repayTransactions(
     address executor,
+    address vault,
     FunctionParameters.FlashLoanData memory flashData
   ) internal pure returns (MultiTransaction[] memory transactions) {
     uint256 tokenLength = flashData.debtToken.length; // Get the number of debt tokens
     transactions = new MultiTransaction[](tokenLength * 2); // Initialize the transactions array
     uint256 count;
-
+    uint256 amountToRepay = flashData.isMaxRepayment
+      ? type(uint256).max // If it's a max repayment, repay the max amount
+      : flashData.debtRepayAmount[0]; // Otherwise, repay the debt amount
     // Loop through the debt tokens to handle repayments
     for (uint i = 0; i < tokenLength; ) {
-      uint256 amountToRepay = flashData.isMaxRepayment
-        ? type(uint256).max // If it's a max repayment, repay the max amount
-        : flashData.debtRepayAmount[i]; // Otherwise, repay the debt amount
       // Approve the debt token for the protocol
       transactions[count].to = executor;
       transactions[count].txData = abi.encodeWithSelector(
@@ -810,7 +820,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
       transactions[count].txData = abi.encodeWithSelector(
         bytes4(keccak256("vaultInteraction(address,bytes)")),
         flashData.protocolTokens[i],
-        repay(amountToRepay)
+        repay(flashData.debtToken[i], vault, amountToRepay)
       );
       count++;
       unchecked {
@@ -903,6 +913,8 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
     address[] memory underlying = new address[](borrowedLength); // Array to store underlying tokens of borrowed assets
     uint256[] memory tokenBalance = new uint256[](borrowedLength); // Array to store balances of borrowed tokens
     uint256 totalFlashAmount; // Variable to track total flash loan amount
+    underlying = new address[](borrowedLength);
+    tokenBalance = new uint256[](borrowedLength);
 
     for (uint256 i; i < borrowedLength; ) {
       address token = borrowedTokens[i];
@@ -1014,7 +1026,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
       .oracle()
       .getUnderlyingPrice(_protocolToken); // Get the oracle price for the protocol token
 
-    Exp memory oraclePrice = Exp({ mantissa: oraclePriceMantissa }); // Create an Exp structure for the oracle price
+    Exp memory oraclePrice = Exp({mantissa: oraclePriceMantissa}); // Create an Exp structure for the oracle price
     uint256 sumBorrowPlusEffects;
 
     // Update the sumBorrowPlusEffects value
