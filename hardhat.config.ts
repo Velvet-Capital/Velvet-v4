@@ -8,7 +8,6 @@ import "solidity-coverage";
 import "hardhat-tracer";
 import "@nomicfoundation/hardhat-chai-matchers";
 
-
 import "hardhat-gas-reporter";
 import "hardhat-abi-exporter";
 require("dotenv").config();
@@ -175,7 +174,8 @@ const config: HardhatUserConfig = {
             runs: 200,
           },
         },
-      }],
+      },
+    ],
   },
   mocha: {
     timeout: 400000,

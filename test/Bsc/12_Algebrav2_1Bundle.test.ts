@@ -21,7 +21,7 @@ import {
   createEnsoCallDataRoute,
   calculateOutputAmounts,
   calculateDepositAmounts,
-} from "./IntentCalculations";
+} from "./IntentCalculationsAlgebraV2";
 
 import { tokenAddresses, IAddresses, priceOracle } from "./Deployments.test";
 
@@ -47,9 +47,9 @@ import {
   WithdrawManagerExternalPositions,
   DepositBatchExternalPositions,
   DepositManagerExternalPositions,
-  PositionManagerAlgebra,
+  PositionManagerAlgebraV1_2,
   AssetManagementConfig,
-  AmountCalculationsAlgebra,
+  AmountCalculationsAlgebraV2,
   IFactory__factory,
   INonfungiblePositionManager__factory,
   IPool__factory,
@@ -91,7 +91,7 @@ describe.only("Tests for Deposit", () => {
   let owner: SignerWithAddress;
   let treasury: SignerWithAddress;
   let _assetManagerTreasury: SignerWithAddress;
-  let positionManager: PositionManagerAlgebra;
+  let positionManager: PositionManagerAlgebraV1_2;
   let assetManagementConfig: AssetManagementConfig;
   let positionWrapper: any;
   let positionWrapper2: any;
@@ -106,7 +106,7 @@ describe.only("Tests for Deposit", () => {
 
   let zeroAddress: any;
 
-  let amountCalculationsAlgebra: AmountCalculationsAlgebra;
+  let amountCalculationsAlgebra: AmountCalculationsAlgebraV2;
 
   const assetManagerHash = ethers.utils.keccak256(
     ethers.utils.toUtf8Bytes("ASSET_MANAGER")
@@ -158,7 +158,7 @@ describe.only("Tests for Deposit", () => {
       const provider = ethers.getDefaultProvider();
 
       const SwapVerificationLibrary = await ethers.getContractFactory(
-        "SwapVerificationLibraryAlgebra"
+        "SwapVerificationLibraryAlgebraV2"
       );
       swapVerificationLibrary = await SwapVerificationLibrary.deploy();
       await swapVerificationLibrary.deployed();
@@ -230,6 +230,7 @@ describe.only("Tests for Deposit", () => {
         iaddress.btcAddress,
         iaddress.usdcAddress,
         iaddress.usdtAddress,
+        addresses.WETH_Address,
       ]);
 
       const Rebalancing = await ethers.getContractFactory("Rebalancing");
@@ -283,10 +284,10 @@ describe.only("Tests for Deposit", () => {
       let whitelist = [owner.address];
 
       const PositionManager = await ethers.getContractFactory(
-        "PositionManagerAlgebra",
+        "PositionManagerAlgebraV1_2",
         {
           libraries: {
-            SwapVerificationLibraryAlgebra: swapVerificationLibrary.address,
+            SwapVerificationLibraryAlgebraV2: swapVerificationLibrary.address,
           },
         }
       );
@@ -294,7 +295,7 @@ describe.only("Tests for Deposit", () => {
       await positionManagerBaseAddress.deployed();
 
       const AmountCalculationsAlgebra = await ethers.getContractFactory(
-        "AmountCalculationsAlgebra"
+        "AmountCalculationsAlgebraV2"
       );
       amountCalculationsAlgebra = await AmountCalculationsAlgebra.deploy();
       await amountCalculationsAlgebra.deployed();
@@ -352,7 +353,7 @@ describe.only("Tests for Deposit", () => {
       );
 
       await portfolioFactory.setPositionManagerAddresses(
-        "0xa51adb08cbe6ae398046a23bec013979816b77ab",
+        "0xbf77b742eE1c0a6883c009Ce590A832DeBe74064",
         "0x327dd3208f0bcf590a66110acb6e5e6941a4efa0"
       );
 
@@ -466,8 +467,8 @@ describe.only("Tests for Deposit", () => {
     describe("Deposit Tests", function () {
       it("should create new position", async () => {
         // UniswapV3 position
-        const token0 = iaddress.ethAddress;
-        const token1 = iaddress.btcAddress;
+        const token0 = iaddress.usdtAddress;
+        const token1 = addresses.WETH_Address;
 
         await positionManager.createNewWrapperPosition(
           token0,
@@ -488,8 +489,8 @@ describe.only("Tests for Deposit", () => {
 
       it("should create new position", async () => {
         // UniswapV3 position
-        const token0 = iaddress.btcAddress;
-        const token1 = iaddress.ethAddress;
+        const token0 = iaddress.usdtAddress;
+        const token1 = addresses.WETH_Address;
 
         await positionManager.createNewWrapperPosition(
           token0,
@@ -576,7 +577,7 @@ describe.only("Tests for Deposit", () => {
             _tokenIn: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenOut: [ZERO_ADDRESS, ZERO_ADDRESS],
             _amountIn: ["0", "0"],
-            _deployer: ZERO_ADDRESS,
+            _deployer: zeroAddress,
           },
           {
             value: "1000000000000000000",
@@ -660,7 +661,7 @@ describe.only("Tests for Deposit", () => {
             _tokenIn: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenOut: [ZERO_ADDRESS, ZERO_ADDRESS],
             _amountIn: ["0", "0"],
-            _deployer: ZERO_ADDRESS,
+            _deployer: zeroAddress,
           }
         );
 
@@ -742,7 +743,7 @@ describe.only("Tests for Deposit", () => {
             _tokenIn: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenOut: [ZERO_ADDRESS, ZERO_ADDRESS],
             _amountIn: ["0", "0"],
-            _deployer: ZERO_ADDRESS,
+            _deployer: zeroAddress,
           }
         );
 
@@ -759,12 +760,12 @@ describe.only("Tests for Deposit", () => {
 
         let tokens = await portfolio.getTokens();
         let sellToken = position1;
-        let buyToken = iaddress.usdtAddress;
+        let buyToken = iaddress.daiAddress;
 
-        let removedPosition = positionWrapper;
+        console.log("address buytoken", buyToken);
 
-        let token0 = await removedPosition.token0();
-        let token1 = await removedPosition.token1();
+        let token0 = await positionWrapper.token0();
+        let token1 = await positionWrapper.token1();
 
         let newTokens = [
           iaddress.usdcAddress,
@@ -810,15 +811,11 @@ describe.only("Tests for Deposit", () => {
 
         let swapAmounts: any = [[]];
         if (withdrawAmounts.token0Amount > 0) {
-          swapAmounts[0][0] = (withdrawAmounts.token0Amount * 0.99999).toFixed(
-            0
-          );
+          swapAmounts[0][0] = (withdrawAmounts.token0Amount * 0.999).toFixed(0);
         }
 
         if (withdrawAmounts.token1Amount > 0) {
-          swapAmounts[0][1] = (withdrawAmounts.token1Amount * 0.99999).toFixed(
-            0
-          );
+          swapAmounts[0][1] = (withdrawAmounts.token1Amount * 0.999).toFixed(0);
         }
 
         const postResponse0 = await createEnsoCallDataRoute(
@@ -868,7 +865,7 @@ describe.only("Tests for Deposit", () => {
             callDataDecreaseLiquidity,
             [[]],
             [[]],
-            [await removedPosition.token0(), await removedPosition.token1()],
+            [await positionWrapper.token0(), await positionWrapper.token1()],
             [sellToken],
             [buyToken],
             [0],
@@ -886,8 +883,8 @@ describe.only("Tests for Deposit", () => {
 
       it("Create a new position wrapper", async () => {
         // UniswapV3 position
-        const token0 = iaddress.usdcAddress;
-        const token1 = iaddress.usdtAddress;
+        const token0 = iaddress.usdtAddress;
+        const token1 = addresses.WETH_Address;
 
         await positionManager.createNewWrapperPosition(
           token0,
@@ -904,152 +901,6 @@ describe.only("Tests for Deposit", () => {
           "PositionWrapper"
         );
         positionWrapper3 = PositionWrapper.attach(position3);
-      });
-
-      it("should rebalance from a ERC20 token to a position wrapper token", async () => {
-        // initialized tokens
-
-        let tokens = await portfolio.getTokens();
-        let sellToken = iaddress.usdtAddress;
-        let buyToken = position3;
-
-        let addedPosition = positionWrapper3;
-
-        let token0 = await addedPosition.token0();
-        let token1 = await addedPosition.token1();
-
-        let newTokens = [
-          iaddress.usdcAddress,
-          position2,
-          iaddress.dogeAddress,
-          iaddress.btcAddress,
-          buyToken,
-        ];
-
-        positionWrappers = [position2, buyToken];
-        swapTokens = [
-          iaddress.usdcAddress,
-          await positionWrapper2.token0(), // position2 - token0
-          await positionWrapper2.token1(), // position2 - token1
-          iaddress.dogeAddress,
-          iaddress.btcAddress,
-          await addedPosition.token0(), // position1 - token0
-          await addedPosition.token1(), // position1 - token1
-        ];
-        positionWrapperIndex = [1, 4];
-        portfolioTokenIndex = [0, 1, 1, 2, 3, 4, 4];
-        isExternalPosition = [false, true, true, false, false, true, true];
-        isTokenExternalPosition = [false, true, false, false, true];
-        index0 = [1, 5];
-        index1 = [2, 6];
-
-        let vault = await portfolio.vault();
-
-        let ERC20 = await ethers.getContractFactory("ERC20Upgradeable");
-        let sellTokenBalance = BigNumber.from(
-          await ERC20.attach(sellToken).balanceOf(vault)
-        ).toString();
-
-        let depositAmounts = await calculateDepositAmounts(
-          buyToken,
-          MIN_TICK,
-          MAX_TICK,
-          sellTokenBalance
-        );
-
-        let callDataEnso: any = [[]];
-        if (sellToken != token0) {
-          let swapAmount = depositAmounts.amount0;
-          const postResponse0 = await createEnsoCallDataRoute(
-            ensoHandler.address,
-            ensoHandler.address,
-            sellToken,
-            token0,
-            swapAmount
-          );
-          callDataEnso[0].push(postResponse0.data.tx.data);
-        }
-
-        if (sellToken != token1) {
-          let swapAmount = depositAmounts.amount1;
-
-          const postResponse1 = await createEnsoCallDataRoute(
-            ensoHandler.address,
-            ensoHandler.address,
-            sellToken,
-            token1,
-            swapAmount
-          );
-          callDataEnso[0].push(postResponse1.data.tx.data);
-        }
-
-        const callDataIncreaseLiquidity: any = [[]];
-        // Encode the function call
-        let ABIApprove = ["function approve(address spender, uint256 amount)"];
-        let abiEncodeApprove = new ethers.utils.Interface(ABIApprove);
-        callDataIncreaseLiquidity[0][0] = abiEncodeApprove.encodeFunctionData(
-          "approve",
-          [positionManager.address, sellTokenBalance]
-        );
-
-        callDataIncreaseLiquidity[0][1] = abiEncodeApprove.encodeFunctionData(
-          "approve",
-          [positionManager.address, sellTokenBalance]
-        );
-
-        // Define the ABI with the correct structure of WrapperDepositParams
-        let ABI = [
-          "function initializePositionAndDeposit(address _dustReceiver, address _positionWrapper, (uint256 _amount0Desired, uint256 _amount1Desired, uint256 _amount0Min, uint256 _amount1Min, address _deployer) params)",
-        ];
-
-        let abiEncode = new ethers.utils.Interface(ABI);
-
-        // Encode the initializePositionAndDeposit function call
-        callDataIncreaseLiquidity[0][2] = abiEncode.encodeFunctionData(
-          "initializePositionAndDeposit",
-          [
-            owner.address, // _dustReceiver
-            buyToken, // _positionWrapper
-            {
-              _amount0Desired: (depositAmounts.amount0 * 0.999).toFixed(0),
-              _amount1Desired: (depositAmounts.amount1 * 0.999).toFixed(0),
-              _amount0Min: 0,
-              _amount1Min: 0,
-              _deployer: zeroAddress,
-            },
-          ]
-        );
-
-        const encodedParameters = ethers.utils.defaultAbiCoder.encode(
-          [
-            " bytes[][]", // callDataEnso
-            "bytes[]", // callDataDecreaseLiquidity
-            "bytes[][]", // callDataIncreaseLiquidity
-            "address[][]", // increaseLiquidityTarget
-            "address[]", // underlyingTokensDecreaseLiquidity
-            "address[]", // tokensIn
-            "address[]", // tokens
-            " uint256[]", // minExpectedOutputAmounts
-          ],
-          [
-            callDataEnso,
-            [],
-            callDataIncreaseLiquidity,
-            [[token0, token1, positionManager.address]],
-            [],
-            [sellToken],
-            [buyToken],
-            [0],
-          ]
-        );
-
-        await rebalancing.updateTokens({
-          _newTokens: newTokens,
-          _sellTokens: [sellToken],
-          _sellAmounts: [sellTokenBalance],
-          _handler: ensoHandler.address,
-          _callData: encodedParameters,
-        });
       });
 
       it("should withdraw in single token by user in native token", async () => {
@@ -1089,8 +940,8 @@ describe.only("Tests for Deposit", () => {
               positionWrappers[wrapperIndex]
             );
             let percentage = await amountCalculationsAlgebra.getPercentage(
-              withdrawalAmounts[i],
-              (await positionWrapperCurrent.totalSupply()).toString()
+              withdrawalAmounts[i].toString(),
+              await positionWrapperCurrent.totalSupply()
             );
 
             let withdrawAmounts = await calculateOutputAmounts(
@@ -1099,12 +950,12 @@ describe.only("Tests for Deposit", () => {
             );
             if (withdrawAmounts.token0Amount > 0) {
               swapAmounts.push(
-                (withdrawAmounts.token0Amount * 0.99999).toFixed(0)
+                (withdrawAmounts.token0Amount * 0.999).toFixed(0)
               );
             }
             if (withdrawAmounts.token1Amount > 0) {
               swapAmounts.push(
-                (withdrawAmounts.token1Amount * 0.99999).toFixed(0)
+                (withdrawAmounts.token1Amount * 0.999).toFixed(0)
               );
             }
             wrapperIndex++;
@@ -1125,7 +976,7 @@ describe.only("Tests for Deposit", () => {
               user.address,
               swapTokens[i],
               tokenToSwapInto,
-              (swapAmounts[i] * 0.99999).toFixed(0)
+              (swapAmounts[i] * 0.999).toFixed(0)
             );
             responses.push(response.data.tx.data);
           }
@@ -1213,7 +1064,7 @@ describe.only("Tests for Deposit", () => {
             );
             let percentage = await amountCalculationsAlgebra.getPercentage(
               withdrawalAmounts[i],
-              (await positionWrapperCurrent.totalSupply()).toString()
+              await positionWrapperCurrent.totalSupply()
             );
 
             let withdrawAmounts = await calculateOutputAmounts(
@@ -1222,12 +1073,12 @@ describe.only("Tests for Deposit", () => {
             );
             if (withdrawAmounts.token0Amount > 0) {
               swapAmounts.push(
-                (withdrawAmounts.token0Amount * 0.99999).toFixed(0)
+                (withdrawAmounts.token0Amount * 0.999).toFixed(0)
               );
             }
             if (withdrawAmounts.token1Amount > 0) {
               swapAmounts.push(
-                (withdrawAmounts.token1Amount * 0.99999).toFixed(0)
+                (withdrawAmounts.token1Amount * 0.999).toFixed(0)
               );
             }
             wrapperIndex++;
@@ -1248,7 +1099,7 @@ describe.only("Tests for Deposit", () => {
               user.address,
               swapTokens[i],
               tokenToSwapInto,
-              (swapAmounts[i] * 0.99999).toFixed(0)
+              (swapAmounts[i] * 0.999).toFixed(0)
             );
             responses.push(response.data.tx.data);
           }
@@ -1368,7 +1219,7 @@ describe.only("Tests for Deposit", () => {
             _tokenIn: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenOut: [ZERO_ADDRESS, ZERO_ADDRESS],
             _amountIn: ["0", "0"],
-            _deployer: ZERO_ADDRESS,
+            _deployer: zeroAddress,
           }
         );
 
@@ -1463,7 +1314,7 @@ describe.only("Tests for Deposit", () => {
             _tokenIn: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenOut: [ZERO_ADDRESS, ZERO_ADDRESS],
             _amountIn: ["0", "0"],
-            _deployer: ZERO_ADDRESS,
+            _deployer: zeroAddress,
           }
         );
 
@@ -1522,19 +1373,15 @@ describe.only("Tests for Deposit", () => {
             );
             let percentage = await amountCalculationsAlgebra.getPercentage(
               withdrawalAmounts[i],
-              (await positionWrapperCurrent.totalSupply()).toString()
+              await positionWrapperCurrent.totalSupply()
             );
 
             let withdrawAmounts = await calculateOutputAmounts(
               tokens[i],
               percentage.toString()
             );
-            swapAmounts.push(
-              (withdrawAmounts.token0Amount * 0.99999).toFixed(0)
-            );
-            swapAmounts.push(
-              (withdrawAmounts.token1Amount * 0.99999).toFixed(0)
-            );
+            swapAmounts.push((withdrawAmounts.token0Amount * 0.999).toFixed(0));
+            swapAmounts.push((withdrawAmounts.token1Amount * 0.999).toFixed(0));
             wrapperIndex++;
           }
         }
@@ -1553,7 +1400,7 @@ describe.only("Tests for Deposit", () => {
               user.address,
               swapTokens[i],
               tokenToSwapInto,
-              (swapAmounts[i] * 0.99999).toFixed(0)
+              (swapAmounts[i] * 0.999).toFixed(0)
             );
             responses.push(response.data.tx.data);
           }

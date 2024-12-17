@@ -352,6 +352,7 @@ library FunctionParameters {
   struct ExternalPositionDepositParams {
     address[] _positionWrappers;
     address[] _swapTokens;
+    address _deployer;
     uint256[] _positionWrapperIndex;
     uint256[] _portfolioTokenIndex;
     uint256[] _index0;

@@ -43,6 +43,23 @@ library WrapperFunctionParameters {
     uint256 _amount1Desired;
     uint256 _amount0Min;
     uint256 _amount1Min;
+    address _deployer;
+  }
+
+  /**
+   * @dev Struct for initial parameters used when minting tokens related to a liquidity position.
+   * This is typically used for first-time position setup where specific pool parameters are not yet set.
+   * @param _amount0Desired Desired initial amount of token0.
+   * @param _amount1Desired Desired initial amount of token1.
+   * @param _amount0Min Minimum acceptable amount of token0 to mitigate slippage.
+   * @param _amount1Min Minimum acceptable amount of token1 to mitigate slippage.
+   */
+  struct InitialMintParamsAlgebra {
+    uint256 _amount0Desired;
+    uint256 _amount1Desired;
+    uint256 _amount0Min;
+    uint256 _amount1Min;
+    address _deployer;
   }
 
   /**
@@ -62,6 +79,27 @@ library WrapperFunctionParameters {
     uint256 _amount1Min;
     int24 _tickLower;
     int24 _tickUpper;
+    address _deployer;
+  }
+
+  /**
+   * @dev Extension of PositionMintParams for specific use cases or additional functionality
+   * that may require different handling or additional parameters.
+   * @param _amount0Desired Desired amount of token0 for the position.
+   * @param _amount1Desired Desired amount of token1 for the position.
+   * @param _amount0Min Minimum amount of token0 required to avoid transaction slippage.
+   * @param _amount1Min Minimum amount of token1 required to avoid transaction slippage.
+   * @param _tickLower Lower tick boundary for setting the price range.
+   * @param _tickUpper Upper tick boundary for setting the price range.
+   */
+  struct PositionMintParamsAlgebra {
+    uint256 _amount0Desired;
+    uint256 _amount1Desired;
+    uint256 _amount0Min;
+    uint256 _amount1Min;
+    int24 _tickLower;
+    int24 _tickUpper;
+    address _deployer;
   }
 
   /**
