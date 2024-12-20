@@ -302,6 +302,8 @@ export const BaseMainnet: ChainAddresses = {
   WETH: "0x4200000000000000000000000000000000000006",
   USDC: "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913",
   DAI: "0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb",
+  WBTC: "0x70acdf2ad0bf2402c957154f944c19ef4e1cbae1",
+  USDplus: "0x0c1a09d5d0445047da3ab4994262b22404288a3b",
 
   //GnosisContracts
   gnosisSingleton: "0x3E5c63644E683549055b9Be8653de26E0B4CD36E",
@@ -309,6 +311,9 @@ export const BaseMainnet: ChainAddresses = {
   gnosisMultisendLibrary: "0xA238CBeb142c10Ef7Ad8442C6D1f9E89e07e7761",
   gnosisSafeProxyFactory: "0xa6B71E26C5e0845f74c812102Ca7114b6a896AB2",
   moduleProxyFactory: "0x76E2cFc1F5Fa8F6a5b3fC4c8F4788F0116861F9B",
+
+  SequencerUptimeFeed: "0xFdB631F5EE196F0ed6FAa767959853A9F217697D",
+  SushiSwapRouterAddress: "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24",
 };
 
 export const chainIdToAddresses: {

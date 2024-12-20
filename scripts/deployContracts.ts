@@ -34,7 +34,7 @@ async function main() {
       "0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70", //chainlink price feed
       "0x7e860098F58bBFC8648a4311b374B1D669a2bc6B",
       "0x591e79239a7d679378eC8c847e5038150364C78F",
-    ],
+    ]
   );
 
   await tenderly.verify({
@@ -43,7 +43,9 @@ async function main() {
   });
 
   const EnsoHandler = await ethers.getContractFactory("EnsoHandler");
-  const ensoHandler = await EnsoHandler.deploy();
+  const ensoHandler = await EnsoHandler.deploy(
+    0x38147794ff247e5fc179edbae6c37fff88f68c52
+  );
 
   console.log("ensoHandler address:", ensoHandler.address);
 
@@ -89,7 +91,7 @@ async function main() {
   });
 
   const AssetManagementConfig = await ethers.getContractFactory(
-    "AssetManagementConfig",
+    "AssetManagementConfig"
   );
   const assetManagementConfig = await AssetManagementConfig.deploy();
 
@@ -131,7 +133,7 @@ async function main() {
   });
 
   const TokenExclusionManager = await ethers.getContractFactory(
-    "TokenExclusionManager",
+    "TokenExclusionManager"
   );
   const tokenExclusionManager = await TokenExclusionManager.deploy();
 
@@ -143,7 +145,7 @@ async function main() {
   });
 
   const TokenRemovalVault = await ethers.getContractFactory(
-    "TokenRemovalVault",
+    "TokenRemovalVault"
   );
   const tokenRemovalVault = await TokenRemovalVault.deploy();
   await tokenRemovalVault.deployed();
@@ -156,7 +158,9 @@ async function main() {
   });
 
   const DepositBatch = await ethers.getContractFactory("DepositBatch");
-  const depositBatch = await DepositBatch.deploy();
+  const depositBatch = await DepositBatch.deploy(
+    0x38147794ff247e5fc179edbae6c37fff88f68c52
+  );
 
   console.log("depositBatch address:", depositBatch.address);
 
@@ -176,7 +180,9 @@ async function main() {
   });
 
   const WithdrawBatch = await ethers.getContractFactory("WithdrawBatch");
-  const withdrawBatch = await WithdrawBatch.deploy();
+  const withdrawBatch = await WithdrawBatch.deploy(
+    0x38147794ff247e5fc179edbae6c37fff88f68c52
+  );
 
   console.log("withdrawBatch address:", withdrawBatch.address);
 
@@ -186,7 +192,7 @@ async function main() {
   });
 
   const PortfolioCalculations = await ethers.getContractFactory(
-    "PortfolioCalculations",
+    "PortfolioCalculations"
   );
   const portfolioCalculations = await PortfolioCalculations.deploy();
 
@@ -198,7 +204,7 @@ async function main() {
   });
 
   console.log(
-    "------------------------------ Deployment Ended ------------------------------",
+    "------------------------------ Deployment Ended ------------------------------"
   );
 
   const PortfolioFactory = await ethers.getContractFactory("PortfolioFactory");
@@ -221,11 +227,11 @@ async function main() {
         _protocolConfig: protocolConfig.address,
       },
     ],
-    { kind: "uups" },
+    { kind: "uups" }
   );
 
   const portfolioFactory = PortfolioFactory.attach(
-    portfolioFactoryInstance.address,
+    portfolioFactoryInstance.address
   );
 
   console.log("portfolioFactory address:", portfolioFactory.address);
@@ -242,7 +248,7 @@ async function main() {
 
   await withdrawManager.initialize(
     withdrawBatch.address,
-    portfolioFactory.address,
+    portfolioFactory.address
   );
 }
 

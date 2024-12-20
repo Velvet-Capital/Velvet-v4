@@ -85,7 +85,9 @@ async function main() {
   });
 
   const EnsoHandler = await ethers.getContractFactory("EnsoHandler");
-  const ensoHandler = await EnsoHandler.deploy();
+  const ensoHandler = await EnsoHandler.deploy(
+    0x38147794ff247e5fc179edbae6c37fff88f68c52
+  );
 
   console.log("ensoHandler address:", ensoHandler.address);
 
@@ -297,7 +299,9 @@ async function main() {
   const DepositBatch = await ethers.getContractFactory(
     "DepositBatchExternalPositions"
   );
-  const depositBatch = await DepositBatch.deploy();
+  const depositBatch = await DepositBatch.deploy(
+    0x38147794ff247e5fc179edbae6c37fff88f68c52
+  );
 
   console.log("depositBatch address:", depositBatch.address);
 
@@ -321,7 +325,9 @@ async function main() {
   const WithdrawBatch = await ethers.getContractFactory(
     "WithdrawBatchExternalPositions"
   );
-  const withdrawBatch = await WithdrawBatch.deploy();
+  const withdrawBatch = await WithdrawBatch.deploy(
+    0x38147794ff247e5fc179edbae6c37fff88f68c52
+  );
 
   console.log("withdrawBatch address:", withdrawBatch.address);
 

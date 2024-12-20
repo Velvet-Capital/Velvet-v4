@@ -14,9 +14,14 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuar
  * @dev This contract uses Enso's swap execution logic for delegating swaps.
  */
 contract WithdrawBatch is ReentrancyGuard {
-  // The address of Enso's swap execution logic; swaps are delegated to this target.
-  address constant SWAP_TARGET = 0x38147794FF247e5Fc179eDbAE6C37fff88f68C52;
   address constant ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+  // The address of Solver's swap execution logic; swaps are delegated to this target.
+  address immutable SWAP_TARGET;
+
+  constructor(address _swapTarget) {
+    SWAP_TARGET = _swapTarget;
+  }
 
   /**
    * @notice Executes a multi-token swap and withdrawal process, sending the resulting tokens to the user.
