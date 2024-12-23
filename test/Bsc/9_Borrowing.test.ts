@@ -113,11 +113,15 @@ describe.only("Tests for Deposit", () => {
       iaddress = await tokenAddresses();
 
       const EnsoHandler = await ethers.getContractFactory("EnsoHandler");
-      ensoHandler = await EnsoHandler.deploy();
+      ensoHandler = await EnsoHandler.deploy(
+        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+      );
       await ensoHandler.deployed();
 
       const DepositBatch = await ethers.getContractFactory("DepositBatch");
-      depositBatch = await DepositBatch.deploy();
+      depositBatch = await DepositBatch.deploy(
+        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+      );
       await depositBatch.deployed();
 
       const DepositManager = await ethers.getContractFactory("DepositManager");
@@ -125,7 +129,9 @@ describe.only("Tests for Deposit", () => {
       await depositManager.deployed();
 
       const WithdrawBatch = await ethers.getContractFactory("WithdrawBatch");
-      withdrawBatch = await WithdrawBatch.deploy();
+      withdrawBatch = await WithdrawBatch.deploy(
+        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+      );
       await withdrawBatch.deployed();
 
       const WithdrawManager = await ethers.getContractFactory(
@@ -851,25 +857,34 @@ describe.only("Tests for Deposit", () => {
 
       it("protocol owner should be able to set new max borrow token limit", async () => {
         await protocolConfig.updateMaxBorrowTokenLimit(3);
-      })
+      });
 
       it("should fail if non protocol owner, is trying to set new max borrow token limit", async () => {
-        await expect(protocolConfig.connect(nonOwner).updateMaxBorrowTokenLimit(3)).to.be.reverted;
-      })
+        await expect(
+          protocolConfig.connect(nonOwner).updateMaxBorrowTokenLimit(3)
+        ).to.be.reverted;
+      });
 
-      it("should fail if protocol owner tried to update borrow token limit, more then max limit(i.e 20)",async () =>{
-        expect(await protocolConfig.updateMaxBorrowTokenLimit(3)).to.be.revertedWithCustomError(protocolConfig,"ExceedsBorrowLimit");
-      })
+      it("should fail if protocol owner tried to update borrow token limit, more then max limit(i.e 20)", async () => {
+        expect(
+          await protocolConfig.updateMaxBorrowTokenLimit(3)
+        ).to.be.revertedWithCustomError(protocolConfig, "ExceedsBorrowLimit");
+      });
 
       it("should fail if assetmanager tries to borrow token, more then max limit", async () => {
-        expect(await rebalancing.borrow(
-          addresses.vLINK_Address,
-          [addresses.vBNB_Address],
-          addresses.LINK_Address,
-          addresses.corePool_controller,
-          "2000000000000000000"
-        )).to.be.revertedWithCustomError(rebalancing,"BorrowTokenLimitExceeded");
-      })
+        expect(
+          await rebalancing.borrow(
+            addresses.vLINK_Address,
+            [addresses.vBNB_Address],
+            addresses.LINK_Address,
+            addresses.corePool_controller,
+            "2000000000000000000"
+          )
+        ).to.be.revertedWithCustomError(
+          rebalancing,
+          "BorrowTokenLimitExceeded"
+        );
+      });
 
       it("should swap borrowed LINK to vBNB", async () => {
         let tokens = await portfolio.getTokens();
@@ -1054,7 +1069,6 @@ describe.only("Tests for Deposit", () => {
         console.log("balanceBorrowed after repay", balanceBorrowed);
       });
 
-
       it("should swap tokens for user using native token", async () => {
         let tokens = await portfolio.getTokens();
 
@@ -1093,7 +1107,7 @@ describe.only("Tests for Deposit", () => {
 
       it("borrowed token limit should decrease after complete repayment", async () => {
         expect(await rebalancing.tokensBorrowed()).to.be.equal(2);
-      })
+      });
 
       it("Repay half of borrowed amount directly using vault token", async () => {
         let vault = await portfolio.vault();
@@ -1409,8 +1423,9 @@ describe.only("Tests for Deposit", () => {
 
         const calldata = ethers.utils.defaultAbiCoder.encode(types, values);
 
-        await expect(borrowManager.algebraFlashCallback("100", "100", calldata))
-          .to.be.revertedWithCustomError(borrowManager,"FlashLoanIsInactive");
+        await expect(
+          borrowManager.algebraFlashCallback("100", "100", calldata)
+        ).to.be.revertedWithCustomError(borrowManager, "FlashLoanIsInactive");
       });
 
       it("should repay half of borrowed dai using flashLoan", async () => {

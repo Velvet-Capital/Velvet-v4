@@ -18,8 +18,12 @@ import { ExternalPositionManagement } from "./ExternalPositionManagement.sol";
  * for users. It includes functionalities for wrapping/unwrapping native tokens as part of these operations.
  */
 contract EnsoHandlerBundled is IIntentHandler, ExternalPositionManagement {
-  // Address pointing to Enso's logic for executing swap operations. This is a constant target used for delegatecalls.
-  address constant SWAP_TARGET = 0x38147794FF247e5Fc179eDbAE6C37fff88f68C52;
+  // The address of Solver's swap execution logic; swaps are delegated to this target.
+  address immutable SWAP_TARGET;
+
+  constructor(address _swapTarget) {
+    SWAP_TARGET = _swapTarget;
+  }
 
   /**
    * @notice Performs a bundled operation of token swaps and transfers the resulting tokens to a specified address.

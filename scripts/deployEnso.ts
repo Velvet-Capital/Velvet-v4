@@ -16,11 +16,13 @@ async function main() {
   console.log("--------------- Contract Deployment Started ---------------");
 
   const EnsoHandler = await ethers.getContractFactory("EnsoHandler");
-  const ensoHandler = await EnsoHandler.deploy();
+  const ensoHandler = await EnsoHandler.deploy(
+    0x38147794ff247e5fc179edbae6c37fff88f68c52
+  );
   console.log("EnsoHandler deployed to: ", ensoHandler.address);
 
   console.log(
-    "------------------------------ Deployment Storage Ended ------------------------------",
+    "------------------------------ Deployment Storage Ended ------------------------------"
   );
 }
 
