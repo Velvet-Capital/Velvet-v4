@@ -16,7 +16,7 @@ interface IMetaAggregatorSwapContract {
     ) external;
 
     function swapETH(
-        IERC20 tokenIn,
+        address tokenIn,
         IERC20 tokenOut,
         address aggregator,
         bytes calldata swapData,

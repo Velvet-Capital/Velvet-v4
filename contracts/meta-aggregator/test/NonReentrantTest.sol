@@ -29,7 +29,7 @@ contract NonReentrantTest {
 
     function receiverCallETH(
         address callerAddress,
-        IERC20 tokenIn,
+        address tokenIn,
         IERC20 tokenOut,
         address aggregator,
         bytes calldata swapData,

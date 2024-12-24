@@ -35,6 +35,7 @@
     "test:arb": "CHAIN_ID=42161 hardhat test test/Arbitrum",
     "test:bsc": "CHAIN_ID=56 hardhat test test/Bsc",
     "test:meta-aggregator": "npx hardhat test test/meta-aggregator-test/*test.*",
+    "test:meta-aggregator-integration": "npx hardhat test test/meta-aggregator-integration-test-base/*test.* --vvv",
     "coverage:meta-aggregator": "npx hardhat coverage --sources meta-aggregator  --testfiles \"test/meta-aggregator-test/*test.*\"",
     "deploy:meta-aggregator": "npx hardhat run scripts/deployMetaAggregator.ts --network BaseMainnet"
   },
@@ -103,6 +104,7 @@
     "@uniswap/v2-periphery": "^1.1.0-beta.0",
     "@uniswap/v3-core": "^1.0.1",
     "@uniswap/v3-periphery": "^1.4.4",
+    "axios": "^1.7.9",
     "chai-bignumber": "^3.0.0",
     "eslint": "8.10.0",
     "eslint-config-prettier": "^8.5.0",
