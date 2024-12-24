@@ -287,7 +287,8 @@ contract DepositBatchExternalPositions is ReentrancyGuard {
           _amount0Desired: _swapResults[_params._index0[i]],
           _amount1Desired: _swapResults[_params._index1[i]],
           _amount0Min: _params._amount0Min[i],
-          _amount1Min: _params._amount1Min[i]
+          _amount1Min: _params._amount1Min[i],
+          _deployer: _params._deployer
         })
       );
     } else {

@@ -634,6 +634,7 @@ describe.only("Tests for Deposit", () => {
                 _amount1Desired: swapResult1,
                 _amount0Min: "0",
                 _amount1Min: "0",
+                _deployer: zeroAddress,
               }
             );
 
@@ -1064,6 +1065,7 @@ describe.only("Tests for Deposit", () => {
           position1,
           updateRangeData.tokenIn,
           updateRangeData.tokenOut,
+          zeroAddress,
           updateRangeData.swapAmount.toString(),
           0,
           0,
@@ -1092,6 +1094,7 @@ describe.only("Tests for Deposit", () => {
           position1,
           updateRangeData.tokenIn,
           updateRangeData.tokenOut,
+          zeroAddress,
           updateRangeData.swapAmount.toString(),
           0,
           0,
@@ -1120,6 +1123,7 @@ describe.only("Tests for Deposit", () => {
           position1,
           updateRangeData.tokenIn,
           updateRangeData.tokenOut,
+          zeroAddress,
           updateRangeData.swapAmount.toString(),
           0,
           0,

@@ -2,33 +2,11 @@
 pragma solidity 0.8.17;
 
 /// @title Non-fungible token for positions
-/// @notice Wraps Uniswap V3 positions in a non-fungible token interface which allows for them to be transferred
+/// @notice Wraps Algebra positions in a non-fungible token interface which allows for them to be transferred
 /// and authorized.
+/// @dev Credit to Uniswap Labs under GPL-2.0-or-later license:
+/// https://github.com/Uniswap/v3-periphery
 interface INonfungiblePositionManager {
-  /// @notice Emitted when liquidity is increased for a position NFT
-  /// @dev Also emitted when a token is minted
-  /// @param tokenId The ID of the token for which liquidity was increased
-  /// @param liquidity The amount by which liquidity for the NFT position was increased
-  /// @param amount0 The amount of token0 that was paid for the increase in liquidity
-  /// @param amount1 The amount of token1 that was paid for the increase in liquidity
-  event IncreaseLiquidity(
-    uint256 indexed tokenId,
-    uint128 liquidity,
-    uint256 amount0,
-    uint256 amount1
-  );
-  /// @notice Emitted when liquidity is decreased for a position NFT
-  /// @param tokenId The ID of the token for which liquidity was decreased
-  /// @param liquidity The amount by which liquidity for the NFT position was decreased
-  /// @param amount0 The amount of token0 that was accounted for the decrease in liquidity
-  /// @param amount1 The amount of token1 that was accounted for the decrease in liquidity
-  event DecreaseLiquidity(
-    uint256 indexed tokenId,
-    uint128 liquidity,
-    uint256 amount0,
-    uint256 amount1
-  );
-
   /// @notice Returns the position information associated with a given token ID.
   /// @dev Throws if the token ID is not valid.
   /// @param tokenId The ID of the token that represents the position
@@ -36,7 +14,7 @@ interface INonfungiblePositionManager {
   /// @return operator The address that is approved for spending
   /// @return token0 The address of the token0 for a specific pool
   /// @return token1 The address of the token1 for a specific pool
-  /// @return fee The fee associated with the pool
+  /// @return deployer The address of the custom pool deployer
   /// @return tickLower The lower end of the tick range for the position
   /// @return tickUpper The higher end of the tick range for the position
   /// @return liquidity The liquidity of the position
@@ -50,11 +28,11 @@ interface INonfungiblePositionManager {
     external
     view
     returns (
-      uint96 nonce,
+      uint88 nonce,
       address operator,
       address token0,
       address token1,
-      uint24 fee,
+      address deployer,
       int24 tickLower,
       int24 tickUpper,
       uint128 liquidity,
@@ -67,7 +45,7 @@ interface INonfungiblePositionManager {
   struct MintParams {
     address token0;
     address token1;
-    uint24 fee;
+    address deployer;
     int24 tickLower;
     int24 tickUpper;
     uint256 amount0Desired;
@@ -115,8 +93,8 @@ interface INonfungiblePositionManager {
   /// amount1Min The minimum amount of token1 to spend, which serves as a slippage check,
   /// deadline The time by which the transaction must be included to effect the change
   /// @return liquidity The new liquidity amount as a result of the increase
-  /// @return amount0 The amount of token0 to acheive resulting liquidity
-  /// @return amount1 The amount of token1 to acheive resulting liquidity
+  /// @return amount0 The amount of token0 to achieve resulting liquidity
+  /// @return amount1 The amount of token1 to achieve resulting liquidity
   function increaseLiquidity(
     IncreaseLiquidityParams calldata params
   )
@@ -151,11 +129,6 @@ interface INonfungiblePositionManager {
     uint128 amount1Max;
   }
 
-  /// @notice Burns a token ID, which deletes it from the NFT contract. The token must have 0 liquidity and all tokens
-  /// must be collected first.
-  /// @param tokenId The ID of the token that is being burned
-  function burn(uint256 tokenId) external payable;
-
   /// @notice Collects up to a maximum amount of fees owed to a specific position to the recipient
   /// @param params tokenId The ID of the NFT for which tokens are being collected,
   /// recipient The account that should receive the tokens,
@@ -167,5 +140,12 @@ interface INonfungiblePositionManager {
     CollectParams calldata params
   ) external payable returns (uint256 amount0, uint256 amount1);
 
+  /// @notice Burns a token ID, which deletes it from the NFT contract. The token must have 0 liquidity and all tokens
+  /// must be collected first.
+  /// @param tokenId The ID of the token that is being burned
+  function burn(uint256 tokenId) external payable;
+
   function factory() external view returns (address);
+
+  function poolDeployer() external returns (address);
 }

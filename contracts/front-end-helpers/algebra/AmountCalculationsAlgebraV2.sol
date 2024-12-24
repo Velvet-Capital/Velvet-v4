@@ -2,22 +2,21 @@
 pragma solidity 0.8.17;
 
 import { LiquidityAmounts } from "../../wrappers/abstract/LiquidityAmounts.sol";
-import { INonfungiblePositionManager } from "../../wrappers/algebra/INonfungiblePositionManager.sol";
+import { INonfungiblePositionManager } from "../../wrappers/algebra-v1.2/INonfungiblePositionManager.sol";
 
 import "@cryptoalgebra/integral-core/contracts/libraries/TickMath.sol";
 
 import "@cryptoalgebra/integral-core/contracts/libraries/Constants.sol";
 
 import { IFactory } from "../../wrappers/algebra/IFactory.sol";
-import { IPool } from "../../wrappers/interfaces/IPool.sol";
+import { IPool } from "../../wrappers/algebra-v1.2/IPool.sol";
 
 import { IPositionWrapper } from "../../wrappers/abstract/IPositionWrapper.sol";
 
 import { FullMath } from "@cryptoalgebra/integral-core/contracts/libraries/FullMath.sol";
-
-contract AmountCalculationsAlgebra {
+contract AmountCalculationsAlgebraV2 {
   INonfungiblePositionManager internal uniswapV3PositionManager =
-    INonfungiblePositionManager(0xa51ADb08Cbe6Ae398046A23bec013979816B77Ab);
+    INonfungiblePositionManager(0xbf77b742eE1c0a6883c009Ce590A832DeBe74064);
 
   uint256 constant TOTAL_WEIGHT = 10_000;
 
@@ -25,6 +24,7 @@ contract AmountCalculationsAlgebra {
     IPositionWrapper _positionWrapper
   ) public returns (uint256 amount0, uint256 amount1) {
     (
+      ,
       ,
       ,
       ,
@@ -58,6 +58,7 @@ contract AmountCalculationsAlgebra {
     );
 
     int24 tick = pool.globalState().tick;
+
     uint160 sqrtRatioX96 = TickMath.getSqrtRatioAtTick(tick);
     uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(_tickLower);
     uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(_tickUpper);
@@ -88,31 +89,14 @@ contract AmountCalculationsAlgebra {
     uint256 _partially,
     uint256 _total
   ) external pure returns (uint256 percentage) {
-    require(_total > 0, "Total amount cannot be zero");
-
-    // If partially is zero, return zero percentage
-    if (_partially == 0) {
-      return 0;
-    }
-
-    // If partially is greater than or equal to total, return 100%
-    if (_partially >= _total) {
-      return TOTAL_WEIGHT;
-    }
-
-    // Calculate percentage
     percentage = (_partially * TOTAL_WEIGHT) / _total;
-
-    // Ensure percentage doesn't exceed 100%
-    if (percentage > TOTAL_WEIGHT) {
-      percentage = TOTAL_WEIGHT;
-    }
   }
 
   function getRatio(
     IPositionWrapper _positionWrapper
   ) external returns (uint256 ratio) {
     (
+      ,
       ,
       ,
       ,
@@ -164,6 +148,7 @@ contract AmountCalculationsAlgebra {
       ,
       ,
       ,
+      ,
       int24 tickLower,
       int24 tickUpper,
       ,
@@ -185,7 +170,7 @@ contract AmountCalculationsAlgebra {
   function getFeesCollected(
     uint256 _tokenId
   ) external view returns (uint128 tokensOwed0, uint128 tokensOwed1) {
-    (, , , , , , , , , tokensOwed0, tokensOwed1) = uniswapV3PositionManager
+    (, , , , , , , , , , tokensOwed0, tokensOwed1) = uniswapV3PositionManager
       .positions(_tokenId);
   }
 }
