@@ -493,6 +493,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
       // Handle asset snapshot and update vars
       bool shouldContinue = updateVarsWithSnapshot(asset, account, vars);
       if (shouldContinue) {
+        unchecked { ++i; }
         continue; // Skip processing if there was an error
       }
 
