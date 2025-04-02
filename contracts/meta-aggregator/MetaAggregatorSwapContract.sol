@@ -169,7 +169,7 @@ contract MetaAggregatorSwapContract is IMetaAggregatorSwapContract {
             receiver
         );
 
-        if (msg.value < amountIn) revert IncorrectEtherAmountSent();
+        if (msg.value != amountIn) revert IncorrectEtherAmountSent();
         uint256 fee;
         if (feeRecipient != address(0) && feeBps != 0) {
             fee = (amountIn * feeBps) / 10000;
