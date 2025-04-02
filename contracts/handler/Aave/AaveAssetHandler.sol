@@ -1271,7 +1271,7 @@ contract AaveAssetHandler is IAssetHandler {
     address[] memory assets = new address[](1);
     assets[0] = repayData._flashLoanToken;
     uint256[] memory amounts = new uint256[](1);
-    amounts[0] = repayData._flashLoanAmount[0];
+    amounts[0] = totalFlashAmount;
     uint256[] memory interestRateModes = new uint256[](1);
     interestRateModes[0] = 0;
 
