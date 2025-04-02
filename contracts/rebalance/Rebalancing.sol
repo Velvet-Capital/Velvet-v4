@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { ReentrancyGuardUpgradeable } from "@openzeppelin/contracts-upgradeable-4.9.6/security/ReentrancyGuardUpgradeable.sol";
-import { UUPSUpgradeable } from "@openzeppelin/contracts-upgradeable-4.9.6/proxy/utils/UUPSUpgradeable.sol";
-import { OwnableUpgradeable } from "@openzeppelin/contracts-upgradeable-4.9.6/access/OwnableUpgradeable.sol";
-import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
-import { ErrorLibrary } from "../library/ErrorLibrary.sol";
-import { IIntentHandler } from "../core/interfaces/IIntentHandler.sol";
-import { RebalancingConfig } from "./RebalancingConfig.sol";
-import { IAssetHandler } from "../core/interfaces/IAssetHandler.sol";
-import { IBorrowManager } from "../core/interfaces/IBorrowManager.sol";
-import { IAssetManagementConfig } from "../config/assetManagement/IAssetManagementConfig.sol";
-import { FunctionParameters } from "../FunctionParameters.sol";
-import { IPositionManager } from "../wrappers/abstract/IPositionManager.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/security/ReentrancyGuardUpgradeable.sol";
+import {UUPSUpgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/proxy/utils/UUPSUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/access/OwnableUpgradeable.sol";
+import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
+import {ErrorLibrary} from "../library/ErrorLibrary.sol";
+import {IIntentHandler} from "../core/interfaces/IIntentHandler.sol";
+import {RebalancingConfig} from "./RebalancingConfig.sol";
+import {IAssetHandler} from "../core/interfaces/IAssetHandler.sol";
+import {IBorrowManager} from "../core/interfaces/IBorrowManager.sol";
+import {IAssetManagementConfig} from "../config/assetManagement/IAssetManagementConfig.sol";
+import {FunctionParameters} from "../FunctionParameters.sol";
+import {IPositionManager} from "../wrappers/abstract/IPositionManager.sol";
 
 /**
  * @title RebalancingCore
@@ -186,7 +186,7 @@ contract Rebalancing is
 
         // Store the current balance of the token for later verification
         initialBalances[i] = _getTokenBalanceOf(token, _vault);
-        
+
         // Calculate a unique bit position for this token
         uint256 bitPos = uint256(keccak256(abi.encodePacked(token))) % 65536; // Hash to get a unique bit position in the range 0-65,535
         uint256 index = bitPos / 256; // Determine the specific uint256 slot in the array (0 to 255)
@@ -309,6 +309,26 @@ contract Rebalancing is
       _debtToken,
       assetHandler.approve(_repayAddress, 0)
     );
+
+    // Get the number of borrowed tokens after the repayment
+    address[] memory borrowedTokensAfter = assetHandler.getBorrowedTokens(
+      _vault,
+      protocolConfig.marketControllers(_repayAddress)
+    );
+
+    // Check if the token is still in the borrowed list
+    bool isTokenBorrowed = false;
+    for (uint i = 0; i < borrowedTokensAfter.length; i++) {
+      if (borrowedTokensAfter[i] == _debtToken) {
+        isTokenBorrowed = true;
+        break;
+      }
+    }
+
+    // If the token is not in the borrowed list, decrement the counter
+    if (!isTokenBorrowed) {
+      tokensBorrowed--;
+    }
 
     //Events
     emit DirectTokenRepayed(_debtToken, _repayAddress, _repayAmount);
@@ -491,7 +511,6 @@ contract Rebalancing is
       _pool,
       assetHandler.borrow(_pool, _tokenToBorrow, _vault, _amountToBorrow)
     );
-
 
     // Get the number of borrowed tokens after the borrow operation
     // If this number is larger than before, it means we borrowed a new token type

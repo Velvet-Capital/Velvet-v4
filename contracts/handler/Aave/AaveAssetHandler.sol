@@ -326,9 +326,9 @@ contract AaveAssetHandler is IAssetHandler {
 
   function getBorrowedTokens(
     address account,
-    address comptroller
+    address poolAddress
   ) external view returns (address[] memory borrowedTokens) {
-    address[] memory assets = IAavePool(comptroller).getReservesList();
+    address[] memory assets = IAavePool(poolAddress).getReservesList();
     uint assetsCount = assets.length; // Get the number of assets
     borrowedTokens = new address[](assetsCount); // Initialize the borrow tokens array
     uint256 borrowCount; // Counter for borrowed assets
@@ -338,7 +338,7 @@ contract AaveAssetHandler is IAssetHandler {
       (, , uint currentVariableDebt, , , , , , ) = IPoolDataProvider(
         IPoolAddressesProvider(AAVE_ADDRESS_PROVIDER).getPoolDataProvider()
       ).getUserReserveData(assets[i], account);
-      DataTypes.ReserveDataLegacy memory data = IAavePool(comptroller)
+      DataTypes.ReserveDataLegacy memory data = IAavePool(poolAddress)
         .getReserveData(asset);
       if (currentVariableDebt > 0) {
         borrowedTokens[borrowCount++] = data.aTokenAddress; // Add the asset to the borrow tokens if there is a balance
