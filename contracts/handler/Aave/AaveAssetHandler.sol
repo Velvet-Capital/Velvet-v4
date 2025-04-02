@@ -1,25 +1,23 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { IAssetHandler } from "../../core/interfaces/IAssetHandler.sol";
-import { Ownable } from "@openzeppelin/contracts-4.8.2/access/Ownable.sol";
-import { FunctionParameters } from "../../FunctionParameters.sol";
-import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-4.9.6/interfaces/IERC20Upgradeable.sol";
-import { IAavePool, DataTypes } from "./IAavePool.sol";
-import { IPoolDataProvider } from "./IPoolDataProvider.sol";
-import { IAaveToken } from "./IAaveToken.sol";
-import { IAavePriceOracle } from "./IAavePriceOracle.sol";
-import { IERC20MetadataUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
-import { IPortfolio } from "../../core/interfaces/IPortfolio.sol";
-import { ISwapRouter } from "./ISwapRouter.sol";
-import { ISwapHandler } from "../../core/interfaces/ISwapHandler.sol";
+import {IAssetHandler} from "../../core/interfaces/IAssetHandler.sol";
+import {Ownable} from "@openzeppelin/contracts-4.8.2/access/Ownable.sol";
+import {FunctionParameters} from "../../FunctionParameters.sol";
+import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/interfaces/IERC20Upgradeable.sol";
+import {IAavePool, DataTypes, IPoolAddressesProvider} from "./IAavePool.sol";
+import {IPoolDataProvider} from "./IPoolDataProvider.sol";
+import {IAaveToken} from "./IAaveToken.sol";
+import {IAavePriceOracle} from "./IAavePriceOracle.sol";
+import {IERC20MetadataUpgradeable} from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
+import {IPortfolio} from "../../core/interfaces/IPortfolio.sol";
+import {ISwapRouter} from "./ISwapRouter.sol";
+import {ISwapHandler} from "../../core/interfaces/ISwapHandler.sol";
 
 contract AaveAssetHandler is IAssetHandler {
-  address immutable DATA_PROVIDER_ADDRESS =
-    0x7F23D86Ee20D869112572136221e173428DD740B;
-
-  address immutable PRICE_ORACLE_ADDRESS =
-    0xb56c2F0B653B2e0b10C9b928C8580Ac5Df02C7C7;
+  
+  address immutable AAVE_ADDRESS_PROVIDER =
+    0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb;
 
   /// @dev Struct to hold context data for withdrawal transactions to avoid stack too deep errors
   /// @param user Address of the user whose assets are being withdrawn
@@ -269,7 +267,7 @@ contract AaveAssetHandler is IAssetHandler {
     for (uint i = 0; i < assetsCount; ) {
       address asset = assets[i];
       (, , uint currentVariableDebt, , , , , , ) = IPoolDataProvider(
-        DATA_PROVIDER_ADDRESS
+        IPoolAddressesProvider(AAVE_ADDRESS_PROVIDER).getPoolDataProvider()
       ).getUserReserveData(assets[i], account);
       DataTypes.ReserveDataLegacy memory data = IAavePool(comptroller)
         .getReserveData(asset);
@@ -339,7 +337,7 @@ contract AaveAssetHandler is IAssetHandler {
     for (uint i = 0; i < assetsCount; ) {
       address asset = assets[i];
       (, , uint currentVariableDebt, , , , , , ) = IPoolDataProvider(
-        DATA_PROVIDER_ADDRESS
+        IPoolAddressesProvider(AAVE_ADDRESS_PROVIDER).getPoolDataProvider()
       ).getUserReserveData(assets[i], account);
       DataTypes.ReserveDataLegacy memory data = IAavePool(comptroller)
         .getReserveData(asset);
@@ -1130,7 +1128,7 @@ contract AaveAssetHandler is IAssetHandler {
       address _underlyingToken = IAaveToken(_protocolToken[i])
         .UNDERLYING_ASSET_ADDRESS();
       (, , uint currentVariableDebt, , , , , , ) = IPoolDataProvider(
-        DATA_PROVIDER_ADDRESS
+        IPoolAddressesProvider(AAVE_ADDRESS_PROVIDER).getPoolDataProvider()
       ).getUserReserveData(_underlyingToken, _user);
 
       //Convert underlyingToken to 18 decimal
@@ -1138,10 +1136,9 @@ contract AaveAssetHandler is IAssetHandler {
         10 ** (18 - IERC20MetadataUpgradeable(_underlyingToken).decimals());
 
       //Get price for _protocolToken token and convert to 18 decimal
-      uint _oraclePrice = IAavePriceOracle(PRICE_ORACLE_ADDRESS).getAssetPrice(
-        _underlyingToken
-      ) * 10 ** 10;
-
+      uint _oraclePrice = IAavePriceOracle(
+        IPoolAddressesProvider(AAVE_ADDRESS_PROVIDER).getPriceOracle()
+      ).getAssetPrice(_underlyingToken) * 10 ** 10;
 
       address user = _user;
       //Get price for borrow Balance (amount * price)
@@ -1240,7 +1237,7 @@ contract AaveAssetHandler is IAssetHandler {
       address _underlyingToken = IAaveToken(borrowedTokens[i])
         .UNDERLYING_ASSET_ADDRESS();
       (, , uint currentVariableDebt, , , , , , ) = IPoolDataProvider(
-        DATA_PROVIDER_ADDRESS
+        IPoolAddressesProvider(AAVE_ADDRESS_PROVIDER).getPoolDataProvider()
       ).getUserReserveData(_underlyingToken, _vault);
       underlying[i] = _underlyingToken; // Get the underlying asset for the borrowed token
       tokenBalance[i] =
