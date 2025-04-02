@@ -857,8 +857,8 @@ contract AaveAssetHandler is IAssetHandler {
     // Loop through the debt tokens to handle repayments
     for (uint i = 0; i < tokenLength; ) {
       uint256 amountToRepay = flashData.isMaxRepayment
-      ? type(uint256).max // If it's a max repayment, repay the max amount
-      : flashData.debtRepayAmount[i]; // Otherwise, repay the debt amount
+        ? type(uint256).max // If it's a max repayment, repay the max amount
+        : flashData.debtRepayAmount[i]; // Otherwise, repay the debt amount
       // Approve the debt token for the protocol
       transactions[count].to = executor;
       transactions[count].txData = abi.encodeWithSelector(
@@ -1332,12 +1332,15 @@ contract AaveAssetHandler is IAssetHandler {
   function isCollateralEnabled(
     address token,
     address vault,
-    address controller
+    address
   ) external view returns (bool) {
     try
       IPoolDataProvider(
         IPoolAddressesProvider(AAVE_ADDRESS_PROVIDER).getPoolDataProvider()
-      ).getUserReserveData(token, vault)
+      ).getUserReserveData(
+          IAaveToken(token).UNDERLYING_ASSET_ADDRESS(),
+          vault
+        )
     returns (
       uint256 /* aTokenBalance */,
       uint256 /* stableDebt */,
