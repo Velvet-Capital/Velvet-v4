@@ -171,7 +171,7 @@ contract MetaAggregatorSwapContract is IMetaAggregatorSwapContract {
 
         if (msg.value < amountIn) revert IncorrectEtherAmountSent();
         uint256 fee;
-        if (feeRecipient != address(0) || feeBps != 0) {
+        if (feeRecipient != address(0) && feeBps != 0) {
             fee = (amountIn * feeBps) / 10000;
             amountIn -= fee;
             (bool success, ) = payable(feeRecipient).call{value: fee}("");
@@ -225,7 +225,7 @@ contract MetaAggregatorSwapContract is IMetaAggregatorSwapContract {
             TransferHelper.safeApprove(address(tokenIn), aggregator, amountIn);
         }
         uint256 fee;
-        if (feeRecipient != address(0) || feeBps != 0) {
+        if (feeRecipient != address(0) && feeBps != 0) {
             fee = (amountIn * feeBps) / 10000;
             amountIn -= fee;
             TransferHelper.safeTransfer(address(tokenIn), feeRecipient, fee);
