@@ -111,4 +111,13 @@ interface IAssetHandler {
     uint256 totalCollateral,
     uint256 bufferUnit
   ) external view returns (uint256[] memory amounts);
+
+   /**
+   * @notice Checks if a token is being used as collateral by the vault.
+   * @param token The token address.
+   * @param vault The vault address.
+   * @param controller The controller address.
+   * @return True if the token is enabled as collateral; otherwise false.
+   */
+  function isCollateralEnabled(address token, address vault, address controller) external view returns (bool);
 }

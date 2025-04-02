@@ -15,7 +15,6 @@ import {ISwapRouter} from "./ISwapRouter.sol";
 import {ISwapHandler} from "../../core/interfaces/ISwapHandler.sol";
 
 contract AaveAssetHandler is IAssetHandler {
-  
   address immutable AAVE_ADDRESS_PROVIDER =
     0xa97684ead0e402dC232d5A977953DF7ECBaB3CDb;
 
@@ -1328,5 +1327,31 @@ contract AaveAssetHandler is IAssetHandler {
       abi.encode(flashData),
       0
     );
+  }
+
+  function isCollateralEnabled(
+    address token,
+    address vault,
+    address controller
+  ) external view returns (bool) {
+    try
+      IPoolDataProvider(
+        IPoolAddressesProvider(AAVE_ADDRESS_PROVIDER).getPoolDataProvider()
+      ).getUserReserveData(token, vault)
+    returns (
+      uint256 /* aTokenBalance */,
+      uint256 /* stableDebt */,
+      uint256 /* variableDebt */,
+      uint256 /* principalStableDebt */,
+      uint256 /* scaledVariableDebt */,
+      uint256 /* stableBorrowRate */,
+      uint256 /* liquidityRate */,
+      uint40 /* stableRateLastUpdated */,
+      bool usageAsCollateralEnabled
+    ) {
+      return usageAsCollateralEnabled;
+    } catch {
+      return false;
+    }
   }
 }

@@ -149,6 +149,8 @@ library TokenBalanceLibrary {
   ) public view returns (uint256 tokenBalance) {
     if (_token == address(0) || _vault == address(0))
       revert ErrorLibrary.InvalidAddress(); // Ensures neither the token nor the vault address is zero.
+    
+    uint256 rawBalance = _getTokenBalanceOf(_token, _vault);
     if (_protocolConfig.isBorrowableToken(_token)) {
       address controller = _protocolConfig.marketControllers(_token);
       ControllerData memory controllerData = findControllerData(
@@ -156,12 +158,30 @@ library TokenBalanceLibrary {
         controller
       );
 
-      uint256 rawBalance = _getTokenBalanceOf(_token, _vault);
-      tokenBalance =
+      // Get the asset handler for the controller
+      IAssetHandler assetHandler = IAssetHandler(
+        _protocolConfig.assetHandlers(controller)
+      );
+
+      // Check if token is being used as collateral
+      bool isCollateralEnabled = assetHandler.isCollateralEnabled(
+        _token,
+        _vault,
+        controller
+      );
+
+      // If token is being used as collateral, adjust the balance by the unused collateral percentage
+      if (isCollateralEnabled) {
+        tokenBalance =
         (rawBalance * controllerData.unusedCollateralPercentage) /
         1e18;
+      } else {
+        // If token is not being used as collateral, return the raw balance
+        tokenBalance = rawBalance;
+      }
+
     } else {
-      tokenBalance = _getTokenBalanceOf(_token, _vault);
+      tokenBalance = rawBalance;
     }
   }
 

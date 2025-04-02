@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import { IAssetHandler } from "../../core/interfaces/IAssetHandler.sol";
-import { IVenusPool } from "../../core/interfaces/IVenusPool.sol";
-import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-4.9.6/interfaces/IERC20Upgradeable.sol";
-import { IVenusComptroller, IVAIController, IPriceOracle } from "./IVenusComptroller.sol";
-import { FunctionParameters } from "../../FunctionParameters.sol";
-import { IThena } from "../../core/interfaces/IThena.sol";
-import { IAlgebraPool } from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
-import { ISwapHandler } from "../../core/interfaces/ISwapHandler.sol";
-import { Ownable } from "@openzeppelin/contracts-4.8.2/access/Ownable.sol";
+import {IAssetHandler} from "../../core/interfaces/IAssetHandler.sol";
+import {IVenusPool} from "../../core/interfaces/IVenusPool.sol";
+import {IERC20Upgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/interfaces/IERC20Upgradeable.sol";
+import {IVenusComptroller, IVAIController, IPriceOracle} from "./IVenusComptroller.sol";
+import {FunctionParameters} from "../../FunctionParameters.sol";
+import {IThena} from "../../core/interfaces/IThena.sol";
+import {IAlgebraPool} from "@cryptoalgebra/integral-core/contracts/interfaces/IAlgebraPool.sol";
+import {ISwapHandler} from "../../core/interfaces/ISwapHandler.sol";
+import {Ownable} from "@openzeppelin/contracts-4.8.2/access/Ownable.sol";
 import "./ExponentialNoError.sol";
 
 /**
@@ -260,10 +260,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
     address,
     uint256 amount
   ) public pure returns (bytes memory data) {
-    data = abi.encodeWithSelector(
-      bytes4(keccak256("redeem(uint256)")),
-      amount
-    );
+    data = abi.encodeWithSelector(bytes4(keccak256("redeem(uint256)")), amount);
   }
 
   function swapTokens(
@@ -582,8 +579,8 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
     // Get the collateral factor from the market
     (, uint collateralFactorMantissa, ) = IVenusComptroller(comptroller)
       .markets(address(asset));
-    vars.collateralFactor = Exp({ mantissa: collateralFactorMantissa });
-    vars.exchangeRate = Exp({ mantissa: vars.exchangeRateMantissa });
+    vars.collateralFactor = Exp({mantissa: collateralFactorMantissa});
+    vars.exchangeRate = Exp({mantissa: vars.exchangeRateMantissa});
 
     // Get the normalized price of the asset
     vars.oraclePriceMantissa = IVenusComptroller(comptroller)
@@ -592,7 +589,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
     if (vars.oraclePriceMantissa == 0) {
       return (lendCount, borrowCount); // Skip if the price is zero
     }
-    vars.oraclePrice = Exp({ mantissa: vars.oraclePriceMantissa });
+    vars.oraclePrice = Exp({mantissa: vars.oraclePriceMantissa});
 
     // Pre-compute a conversion factor from tokens to BNB (normalized price value)
     vars.tokensToDenom = mul_(
@@ -1665,7 +1662,7 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
         .oracle()
         .getUnderlyingPrice(_protocolToken[i]); // Get the oracle price for the protocol token
 
-      Exp memory oraclePrice = Exp({ mantissa: oraclePriceMantissa }); // Create an Exp structure for the oracle price
+      Exp memory oraclePrice = Exp({mantissa: oraclePriceMantissa}); // Create an Exp structure for the oracle price
       uint256 sumBorrowPlusEffects;
 
       // Update the sumBorrowPlusEffects value
@@ -1703,5 +1700,14 @@ contract VenusAssetHandler is IAssetHandler, ExponentialNoError {
         ++i;
       }
     }
+  }
+
+  function isCollateralEnabled(
+    address vToken,
+    address vault,
+    address controller
+  ) external view returns (bool) {
+    // Directly use checkMembership if available.
+    return IVenusComptroller(controller).checkMembership(vault, vToken);
   }
 }
