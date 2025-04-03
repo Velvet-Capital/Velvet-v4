@@ -88,4 +88,6 @@ interface IPositionManager {
   function protocolConfig() external view returns (address);
 
   function externalPositionStorage() external view returns (address);
+
+  function protocolId() external view returns (bytes32);
 }

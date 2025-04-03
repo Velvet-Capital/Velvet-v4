@@ -139,7 +139,7 @@ contract Rebalancing is
         FunctionParameters.EnsoRebalanceParams(
           IPositionManager(
             IAssetManagementConfig(portfolio.assetManagementConfig())
-              .positionManager()
+              .lastDeployedPositionManager() // Utilizing the last deployed position manager is sufficient for verifying the existence of external position storage
           ),
           _vault,
           _callData
@@ -186,7 +186,7 @@ contract Rebalancing is
 
         // Store the current balance of the token for later verification
         initialBalances[i] = _getTokenBalanceOf(token, _vault);
-        
+
         // Calculate a unique bit position for this token
         uint256 bitPos = uint256(keccak256(abi.encodePacked(token))) % 65536; // Hash to get a unique bit position in the range 0-65,535
         uint256 index = bitPos / 256; // Determine the specific uint256 slot in the array (0 to 255)
@@ -491,7 +491,6 @@ contract Rebalancing is
       _pool,
       assetHandler.borrow(_pool, _tokenToBorrow, _vault, _amountToBorrow)
     );
-
 
     // Get the number of borrowed tokens after the borrow operation
     // If this number is larger than before, it means we borrowed a new token type

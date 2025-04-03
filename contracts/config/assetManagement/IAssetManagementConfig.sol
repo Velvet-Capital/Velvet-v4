@@ -62,7 +62,13 @@ interface IAssetManagementConfig {
    * @notice Returns the address of the position manager.
    * @return The address of the position manager.
    */
-  function positionManager() external returns (address);
+  function positionManagers(bytes32 id) external returns (address);
+
+  /**
+   * @notice Returns the address of the last deployed position manager.
+   * @return The address of the position manager.
+   */
+  function lastDeployedPositionManager() external returns (address);
 
   /**
    * @notice Checks if a token is whitelisted.

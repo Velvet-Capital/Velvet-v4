@@ -17,6 +17,7 @@ import { IAccessController } from "../../access/IAccessController.sol";
 import { AccessRoles } from "../../access/AccessRoles.sol";
 import { IPriceOracle } from "../../oracle/IPriceOracle.sol";
 import { IExternalPositionStorage } from "./IExternalPositionStorage.sol";
+import "hardhat/console.sol";
 
 /**
  * @title PositionManagerAbstract
@@ -112,6 +113,8 @@ abstract contract PositionManagerAbstract is
   ) internal {
     __UUPSUpgradeable_init();
     __ReentrancyGuard_init();
+
+    console.log("_externalPositionStorage", _externalPositionStorage);
 
     externalPositionStorage = IExternalPositionStorage(
       _externalPositionStorage

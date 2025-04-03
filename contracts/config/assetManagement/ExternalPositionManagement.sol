@@ -19,7 +19,6 @@ import { IExternalPositionStorage } from "../../wrappers/abstract/IExternalPosit
  *      Provides functionality to initialize position management and enable Uniswap V3 wrappers.
  */
 abstract contract ExternalPositionManagement is AccessRoles {
-  IPositionManager public positionManager; // Interface to interact with the position manager.
   address public externalPositions; // Interface to interact with external positions.
   bool public uniswapV3WrapperEnabled; // Flag to indicate if the Uniswap V3 wrapper is enabled.
 
@@ -28,10 +27,13 @@ abstract contract ExternalPositionManagement is AccessRoles {
 
   address public protocolConfig; // Address of the protocol config.
 
+  mapping(bytes32 => IPositionManager) public positionManagers;
+
   // Mapping to track whitelisted protocols
   mapping(bytes32 => bool) public whitelistedProtocols;
 
   mapping(bytes32 => bool) public positionManagerEnabled;
+  address public lastDeployedPositionManager;
 
   event UniswapV3ManagerEnabled();
   event ProtocolManagerEnabled(bytes32 indexed protocolId);
@@ -51,15 +53,17 @@ abstract contract ExternalPositionManagement is AccessRoles {
     address _baseExternalPositionStorage,
     bytes32[] calldata _witelistedProtocolIds
   ) internal {
-    ERC1967Proxy externalPositionStorageProxy = new ERC1967Proxy(
-      _baseExternalPositionStorage,
-      abi.encodeWithSelector(
-        IExternalPositionStorage.init.selector,
-        _accessControllerAddress
-      )
-    );
+    if (externalPositions == address(0)) {
+      ERC1967Proxy externalPositionStorageProxy = new ERC1967Proxy(
+        _baseExternalPositionStorage,
+        abi.encodeWithSelector(
+          IExternalPositionStorage.init.selector,
+          _accessControllerAddress
+        )
+      );
+      externalPositions = address(externalPositionStorageProxy);
+    }
 
-    externalPositions = address(externalPositionStorageProxy);
     accessControllerAddress = _accessControllerAddress;
     basePositionManager = _basePositionManager;
 
@@ -121,7 +125,11 @@ abstract contract ExternalPositionManagement is AccessRoles {
       )
     );
 
-    positionManager = IPositionManager(address(positionManagerProxy));
+    positionManagers[protocolId] = IPositionManager(
+      address(positionManagerProxy)
+    );
+
+    lastDeployedPositionManager = address(positionManagerProxy);
 
     IAccessController(accessControllerAddress).setupPositionManagerRole(
       address(positionManagerProxy)

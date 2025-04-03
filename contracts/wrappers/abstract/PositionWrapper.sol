@@ -22,6 +22,8 @@ contract PositionWrapper is
 {
   address public positionManager; // Address of the Uniswap V3 position manager.
 
+  address public parentPositionManager; // Address of the parent position manager.
+
   address public token0; // Address of the first token in the Uniswap V3 pair.
   address public token1; // Address of the second token in the Uniswap V3 pair.
   uint256 public tokenId; // ID of the Uniswap V3 position.
@@ -70,6 +72,8 @@ contract PositionWrapper is
     __ERC20_init(_name, _symbol);
 
     positionManager = _positionManager;
+
+    parentPositionManager = msg.sender;
   }
 
   function setIntitialParameters(

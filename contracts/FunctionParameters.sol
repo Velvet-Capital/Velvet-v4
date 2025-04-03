@@ -173,7 +173,7 @@ library FunctionParameters {
    * @param _debtToken The addresses of the tokens representing the debt to be repaid.
    * @param _protocolToken The addresses of the protocol-specific tokens, such as lending tokens (e.g., vTokens for Venus protocol).
    * @param _solverHandler The address of the contract handling the execution of swaps and other logic.
-   * @param _swapHandler The address of the contract handling encoded data 
+   * @param _swapHandler The address of the contract handling encoded data
    * @param _bufferUnit Buffer unit for collateral amount
    * @param _flashLoanAmount The amounts of the flash loan to be taken for each corresponding `_flashLoanToken`.
    * @param _debtRepayAmount The amounts of debt to be repaid for each corresponding `_debtToken`.

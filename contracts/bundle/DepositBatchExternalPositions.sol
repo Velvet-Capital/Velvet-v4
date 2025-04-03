@@ -204,9 +204,6 @@ contract DepositBatchExternalPositions is ReentrancyGuard {
     address _assetManagementConfig
   ) internal returns (uint256[] memory) {
     // Increase Liquidity UniswapV3
-    IPositionManager positionManager = IPositionManager(
-      IAssetManagementConfig(_assetManagementConfig).positionManager()
-    );
 
     // Increase liquidity for external positions
     uint256 _positionWrappersLength = _params._positionWrappers.length;
@@ -226,7 +223,12 @@ contract DepositBatchExternalPositions is ReentrancyGuard {
         _params,
         _swapResults,
         i,
-        positionManager,
+        IPositionManager(
+          IAssetManagementConfig(_assetManagementConfig).positionManagers(
+            IPositionManager(positionWrapper.parentPositionManager())
+              .protocolId()
+          )
+        ),
         positionWrapper
       );
 

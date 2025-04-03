@@ -276,7 +276,7 @@ describe.only("Tests for Deposit", () => {
       await protocolConfig.setCoolDownPeriod("70");
       await protocolConfig.enableSolverHandler(ensoHandler.address);
       await protocolConfig.enableSwapHandler(pancakeSwapHandler.address);
-   
+
       await protocolConfig.enableTokens([
         iaddress.ethAddress,
         iaddress.btcAddress,
@@ -318,8 +318,7 @@ describe.only("Tests for Deposit", () => {
       const VenusAssetHandler = await ethers.getContractFactory(
         "VenusAssetHandler"
       );
-      venusAssetHandler = await VenusAssetHandler.deploy(
-      );
+      venusAssetHandler = await VenusAssetHandler.deploy();
       await venusAssetHandler.deployed();
 
       const PancakeSwapHandler = await ethers.getContractFactory(
@@ -572,7 +571,7 @@ describe.only("Tests for Deposit", () => {
       await assetManagementConfig.enableUniSwapV3Manager(thenaProtocolHash);
 
       let positionManagerAddress =
-        await assetManagementConfig.positionManager();
+        await assetManagementConfig.lastDeployedPositionManager();
 
       positionManager = PositionManager.attach(positionManagerAddress);
 

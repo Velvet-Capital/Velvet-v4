@@ -171,7 +171,9 @@ describe.only("Tests for Deposit + Withdrawal", () => {
       const positionManagerBaseAddress = await PositionManager.deploy();
       await positionManagerBaseAddress.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManagerAave");
+      const BorrowManager = await ethers.getContractFactory(
+        "BorrowManagerAave"
+      );
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 
@@ -343,7 +345,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
       await assetManagementConfig.enableUniSwapV3Manager(uniswapV3ProtocolHash);
 
       let positionManagerAddress =
-        await assetManagementConfig.positionManager();
+        await assetManagementConfig.lastDeployedPositionManager();
 
       positionManager = PositionManager.attach(positionManagerAddress);
     });
@@ -1060,7 +1062,6 @@ describe.only("Tests for Deposit + Withdrawal", () => {
             _poolFees: [0, 0, 0],
             _swapHandler: swapHandler.address,
           });
-
 
         const supplyAfter = await portfolio.totalSupply();
 

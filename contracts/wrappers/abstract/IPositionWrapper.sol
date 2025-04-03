@@ -90,4 +90,6 @@ interface IPositionWrapper is IERC20Upgradeable, IERC20MetadataUpgradeable {
   function initialTickUpper() external returns (int24);
 
   function positionManager() external returns (address);
+
+  function parentPositionManager() external returns (address);
 }

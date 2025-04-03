@@ -11,6 +11,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuar
 import { MathUtils } from "../core/calculations/MathUtils.sol";
 
 import { IPositionManager } from "../wrappers/abstract/IPositionManager.sol";
+import { IPositionWrapper } from "../wrappers/abstract/IPositionWrapper.sol";
 import { IAssetManagementConfig } from "../config/assetManagement/IAssetManagementConfig.sol";
 
 import { FunctionParameters } from "../FunctionParameters.sol";
@@ -135,15 +136,20 @@ contract WithdrawBatchExternalPositions is ReentrancyGuard {
     address _target,
     FunctionParameters.ExternalPositionWithdrawParams memory _params
   ) internal {
-    IPositionManager positionManager = IPositionManager(
-      IAssetManagementConfig(IPortfolio(_target).assetManagementConfig())
-        .positionManager()
-    );
-
     uint256 positionWrapperLength = _params._positionWrappers.length;
     for (uint256 i = 0; i < positionWrapperLength; i++) {
       address _positionWrapper = _params._positionWrappers[i];
       uint256 balance = IERC20(_positionWrapper).balanceOf(address(this));
+
+      IPositionManager positionManager = IPositionManager(
+        IAssetManagementConfig(IPortfolio(_target).assetManagementConfig())
+          .positionManagers(
+            IPositionManager(
+              IPositionWrapper(_positionWrapper).parentPositionManager()
+            ).protocolId()
+          )
+      );
+
       positionManager.decreaseLiquidity(
         _positionWrapper,
         MathUtils.safe128(balance),
