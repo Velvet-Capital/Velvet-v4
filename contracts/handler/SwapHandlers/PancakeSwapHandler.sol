@@ -3,9 +3,15 @@ pragma solidity 0.8.17;
 
 import { ISwapHandler } from "../../core/interfaces/ISwapHandler.sol";
 import { ISwapRouter } from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
+
 
 contract PancakeSwapHandler is ISwapHandler {
-  address immutable ROUTER_ADDRESS = 0x1b81D678ffb9C0263b24A97847620C99d213eB14;
+
+  address public immutable ROUTER_ADDRESS;
+  constructor(address _routerAddress) {
+    ROUTER_ADDRESS = _routerAddress;
+  }
 
   function swapExactTokensForTokens(
     address tokenIn,
@@ -17,7 +23,7 @@ contract PancakeSwapHandler is ISwapHandler {
   ) public view returns (bytes memory data) {
     bytes memory path = abi.encodePacked(
       tokenIn, // Address of the input token
-      uint24(fee), // Pool fee (0.3%)
+      SafeCast.toUint24(fee), // Pool fee (0.3%)
       tokenOut // Address of the output token
     );
 
@@ -45,7 +51,7 @@ contract PancakeSwapHandler is ISwapHandler {
   ) public view returns (bytes memory data) {
     bytes memory path = abi.encodePacked(
       tokenIn, // Address of the input token
-      fee, // Pool fee (0.3%)
+      SafeCast.toUint24(fee), // Pool fee (0.3%)
       tokenOut // Address of the output token
     );
 

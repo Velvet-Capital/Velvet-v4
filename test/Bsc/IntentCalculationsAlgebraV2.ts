@@ -269,9 +269,11 @@ export async function increaseLiquidity(
     _amount1Desired: swapResult1,
     _amount0Min: 0,
     _amount1Min: 0,
+    _swapDeployer: ethers.constants.AddressZero,
     _tokenIn: token0,
     _tokenOut: token1,
     _amountIn: 0,
+    _fee: 100,
   });
 
   const balanceT0After = await ERC20Upgradeable.attach(token0).balanceOf(
@@ -330,9 +332,11 @@ export async function decreaseLiquidity(
       balance,
       0,
       0,
+      ethers.constants.AddressZero,
       token0,
       token1,
-      0
+      0,
+      100
     );
 
   let balanceT0After = await ERC20Upgradeable.attach(token0).balanceOf(

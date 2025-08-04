@@ -9,6 +9,7 @@ import {
   increaseLiquidity,
   decreaseLiquidity,
   calculateSwapAmountUpdateRange,
+  calculateWithdrawSwapAmounts,
 } from "./IntentCalculations";
 
 import {
@@ -107,6 +108,8 @@ describe.only("Tests for Deposit", () => {
   let feeModule0: FeeModule;
   let zeroAddress: any;
   let assetManagementConfig1: AssetManagementConfig;
+  let positionManagerBaseAddress: any;
+
   const assetManagerHash = ethers.utils.keccak256(
     ethers.utils.toUtf8Bytes("ASSET_MANAGER")
   );
@@ -176,7 +179,7 @@ describe.only("Tests for Deposit", () => {
 
       const EnsoHandler = await ethers.getContractFactory("EnsoHandler");
       ensoHandler = await EnsoHandler.deploy(
-        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+        "0x7663fd40081dcCd47805c00e613B6beAc3B87F08"
       );
       await ensoHandler.deployed();
 
@@ -184,7 +187,7 @@ describe.only("Tests for Deposit", () => {
         "DepositBatchExternalPositions"
       );
       depositBatch = await DepositBatch.deploy(
-        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+        "0x7663fd40081dcCd47805c00e613B6beAc3B87F08"
       );
       await depositBatch.deployed();
 
@@ -196,7 +199,7 @@ describe.only("Tests for Deposit", () => {
 
       const WithdrawBatch = await ethers.getContractFactory("WithdrawBatch");
       withdrawBatch = await WithdrawBatch.deploy(
-        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+        "0x7663fd40081dcCd47805c00e613B6beAc3B87F08"
       );
       await withdrawBatch.deployed();
 
@@ -212,7 +215,9 @@ describe.only("Tests for Deposit", () => {
       positionWrapperBaseAddress = await PositionWrapper.deploy();
       await positionWrapperBaseAddress.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManagerVenus");
+      const BorrowManager = await ethers.getContractFactory(
+        "BorrowManagerVenus"
+      );
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 
@@ -226,13 +231,6 @@ describe.only("Tests for Deposit", () => {
       protocolConfig = ProtocolConfig.attach(_protocolConfig.address);
       await protocolConfig.setCoolDownPeriod("70");
       await protocolConfig.enableSolverHandler(ensoHandler.address);
-
-      await protocolConfig.enableProtocol(
-        thenaProtocolHash,
-        "0xa51adb08cbe6ae398046a23bec013979816b77ab",
-        "0x327dd3208f0bcf590a66110acb6e5e6941a4efa0",
-        positionWrapperBaseAddress.address
-      );
 
       const Rebalancing = await ethers.getContractFactory("Rebalancing");
       const rebalancingDefult = await Rebalancing.deploy();
@@ -294,8 +292,15 @@ describe.only("Tests for Deposit", () => {
           },
         }
       );
-      const positionManagerBaseAddress = await PositionManager.deploy();
+      positionManagerBaseAddress = await PositionManager.deploy();
       await positionManagerBaseAddress.deployed();
+
+      await protocolConfig.enableProtocol(
+        thenaProtocolHash,
+        "0xa51adb08cbe6ae398046a23bec013979816b77ab",
+        "0x327dd3208f0bcf590a66110acb6e5e6941a4efa0",
+        positionManagerBaseAddress.address
+      );
 
       const AmountCalculationsAlgebra = await ethers.getContractFactory(
         "AmountCalculationsAlgebra"
@@ -346,7 +351,7 @@ describe.only("Tests for Deposit", () => {
             _baseTokenRemovalVaultImplementation: tokenRemovalVault.address,
             _baseVelvetGnosisSafeModuleAddress: velvetSafeModule.address,
             _baseBorrowManager: borrowManager.address,
-            _basePositionManager: positionManagerBaseAddress.address,
+            _basePositionWrapper: positionWrapperBaseAddress.address,
             _baseExternalPositionStorage: externalPositionStorage.address,
             _gnosisSingleton: addresses.gnosisSingleton,
             _gnosisFallbackLibrary: addresses.gnosisFallbackLibrary,
@@ -360,11 +365,6 @@ describe.only("Tests for Deposit", () => {
 
       portfolioFactory = PortfolioFactory.attach(
         portfolioFactoryInstance.address
-      );
-
-      await portfolioFactory.setPositionManagerAddresses(
-        "0xa51adb08cbe6ae398046a23bec013979816b77ab",
-        "0x327dd3208f0bcf590a66110acb6e5e6941a4efa0"
       );
 
       await withdrawManager.initialize(
@@ -467,7 +467,7 @@ describe.only("Tests for Deposit", () => {
       await assetManagementConfig.enableUniSwapV3Manager(thenaProtocolHash);
 
       let positionManagerAddress =
-        await assetManagementConfig.positionManager();
+        await assetManagementConfig.lastDeployedPositionManager();
 
       positionManager = PositionManager.attach(positionManagerAddress);
 
@@ -505,7 +505,7 @@ describe.only("Tests for Deposit", () => {
           thenaProtocolHash2,
           "0xa51adb08cbe6ae398046a23bec013979816b77ab",
           "0x327dd3208f0bcf590a66110acb6e5e6941a4efa0",
-          positionWrapperBaseAddress.address
+          positionManagerBaseAddress.address
         );
         await expect(
           assetManagementConfig1
@@ -752,9 +752,11 @@ describe.only("Tests for Deposit", () => {
             _amount1Desired: 1000,
             _amount0Min: 0,
             _amount1Min: 0,
+            _swapDeployer: zeroAddress,
             _tokenIn: await positionWrapper.token0(),
             _tokenOut: await positionWrapper.token1(),
             _amountIn: 0,
+            _fee: 100,
           })
         ).to.be.revertedWithCustomError(positionManager, "ProtocolIsPaused");
 
@@ -770,9 +772,11 @@ describe.only("Tests for Deposit", () => {
             10000,
             0,
             0,
+            zeroAddress,
             await positionWrapper.token0(),
             await positionWrapper.token1(),
-            0
+            0,
+            100
           )
         ).to.be.revertedWithCustomError(
           positionManager,
@@ -782,6 +786,25 @@ describe.only("Tests for Deposit", () => {
         await protocolConfig.setEmergencyPause(false, true);
       });
 
+      it("should not be able to decrease liquidity when fake position wrapper is passed", async () => {
+        await expect(
+          positionManager.decreaseLiquidity(
+            nonOwner.address,
+            10000,
+            0,
+            0,
+            zeroAddress,
+            await positionWrapper.token0(),
+            await positionWrapper.token1(),
+            0,
+            100
+          )
+        ).to.be.revertedWithCustomError(
+          positionManager,
+          "InvalidPositionWrapper"
+        );
+      });
+
       it("should not be able to update range when protocol is paused", async () => {
         await protocolConfig.setProtocolPause(true);
 
@@ -789,17 +812,19 @@ describe.only("Tests for Deposit", () => {
         const token1 = await positionWrapper.token1();
 
         await expect(
-          positionManager.updateRange(
-            position1,
-            token0,
-            token1,
-            zeroAddress,
-            1000,
-            0,
-            0,
-            MIN_TICK,
-            MAX_TICK
-          )
+          positionManager.updateRange({
+            _positionWrapper: position1,
+            _swapDeployer: zeroAddress,
+            _tokenIn: token0,
+            _tokenOut: token1,
+            _deployer: zeroAddress,
+            _amountIn: 1000,
+            _underlyingAmountOut0: 0,
+            _underlyingAmountOut1: 0,
+            _tickLower: MIN_TICK,
+            _tickUpper: MAX_TICK,
+            _fee: 100,
+          })
         ).to.be.revertedWithCustomError(positionManager, "ProtocolIsPaused");
 
         await protocolConfig.setProtocolPause(false);
@@ -1008,10 +1033,11 @@ describe.only("Tests for Deposit", () => {
         const signature = await owner._signTypedData(domain, types, values);
 
         // Calculation to make minimum amount value for user---------------------------------
-        let result = await portfolioCalculations.getUserAmountToDeposit(
-          amounts,
-          portfolio.address
-        );
+        let result =
+          await portfolioCalculations.callStatic.getUserAmountToDeposit(
+            amounts,
+            portfolio.address
+          );
         //-----------------------------------------------------------------------------------
 
         newAmounts = result[0];
@@ -1122,10 +1148,11 @@ describe.only("Tests for Deposit", () => {
         const signature = await owner._signTypedData(domain, types, values);
 
         // Calculation to make minimum amount value for user---------------------------------
-        let result = await portfolioCalculations.getUserAmountToDeposit(
-          amounts,
-          portfolio.address
-        );
+        let result =
+          await portfolioCalculations.callStatic.getUserAmountToDeposit(
+            amounts,
+            portfolio.address
+          );
         //-----------------------------------------------------------------------------------
 
         newAmounts = result[0];
@@ -1244,10 +1271,11 @@ describe.only("Tests for Deposit", () => {
         const signature = await nonOwner._signTypedData(domain, types, values);
 
         // Calculation to make minimum amount value for user---------------------------------
-        let result = await portfolioCalculations.getUserAmountToDeposit(
-          amounts,
-          portfolio.address
-        );
+        let result =
+          await portfolioCalculations.callStatic.getUserAmountToDeposit(
+            amounts,
+            portfolio.address
+          );
         //-----------------------------------------------------------------------------------
 
         newAmounts = result[0];
@@ -1285,19 +1313,19 @@ describe.only("Tests for Deposit", () => {
         const token1 = await positionWrapper.token1();
 
         await expect(
-          positionManager
-            .connect(nonOwner)
-            .updateRange(
-              position1,
-              token0,
-              token1,
-              zeroAddress,
-              0,
-              0,
-              0,
-              MIN_TICK,
-              MAX_TICK
-            )
+          positionManager.connect(nonOwner).updateRange({
+            _positionWrapper: position1,
+            _swapDeployer: zeroAddress,
+            _tokenIn: token0,
+            _tokenOut: token1,
+            _deployer: zeroAddress,
+            _amountIn: 0,
+            _underlyingAmountOut0: 0,
+            _underlyingAmountOut1: 0,
+            _tickLower: MIN_TICK,
+            _tickUpper: MAX_TICK,
+            _fee: 100,
+          })
         ).to.be.revertedWithCustomError(
           positionManager,
           "CallerNotAssetManager"
@@ -1314,17 +1342,19 @@ describe.only("Tests for Deposit", () => {
         const newTickUpper = 240;
 
         await expect(
-          positionManager.updateRange(
-            position1,
-            token0,
-            token1,
-            zeroAddress,
-            0,
-            0,
-            0,
-            newTickLower,
-            newTickUpper
-          )
+          positionManager.updateRange({
+            _positionWrapper: position1,
+            _swapDeployer: zeroAddress,
+            _tokenIn: token0,
+            _tokenOut: token1,
+            _deployer: zeroAddress,
+            _amountIn: 0,
+            _underlyingAmountOut0: 0,
+            _underlyingAmountOut1: 0,
+            _tickLower: newTickLower,
+            _tickUpper: newTickUpper,
+            _fee: 100,
+          })
         ).to.be.revertedWithCustomError(
           swapVerificationLibrary,
           "InvalidSwapAmount"
@@ -1344,17 +1374,19 @@ describe.only("Tests for Deposit", () => {
         const newTickUpper = 240;
 
         await expect(
-          positionManager.updateRange(
-            position1,
-            token0,
-            token1,
-            zeroAddress,
-            1000,
-            0,
-            0,
-            newTickLower,
-            newTickUpper
-          )
+          positionManager.updateRange({
+            _positionWrapper: position1,
+            _swapDeployer: zeroAddress,
+            _tokenIn: token0,
+            _tokenOut: token1,
+            _deployer: zeroAddress,
+            _amountIn: 1000,
+            _underlyingAmountOut0: 0,
+            _underlyingAmountOut1: 0,
+            _tickLower: newTickLower,
+            _tickUpper: newTickUpper,
+            _fee: 100,
+          })
         ).to.be.revertedWithCustomError(
           swapVerificationLibrary,
           "InvalidSwapAmount"
@@ -1377,17 +1409,19 @@ describe.only("Tests for Deposit", () => {
           newTickUpper
         );
 
-        await positionManager.updateRange(
-          position1,
-          updateRangeData.tokenIn,
-          updateRangeData.tokenOut,
-          zeroAddress,
-          updateRangeData.swapAmount.toString(),
-          0,
-          0,
-          newTickLower,
-          newTickUpper
-        );
+        await positionManager.updateRange({
+          _positionWrapper: position1,
+          _swapDeployer: zeroAddress,
+          _tokenIn: updateRangeData.tokenIn,
+          _tokenOut: updateRangeData.tokenOut,
+          _deployer: zeroAddress,
+          _amountIn: updateRangeData.swapAmount.toString(),
+          _underlyingAmountOut0: 0,
+          _underlyingAmountOut1: 0,
+          _tickLower: newTickLower,
+          _tickUpper: newTickUpper,
+          _fee: 100,
+        });
 
         let totalSupplyAfter = await positionWrapper.totalSupply();
         expect(totalSupplyAfter).to.be.equals(totalSupplyBefore);
@@ -1420,11 +1454,11 @@ describe.only("Tests for Deposit", () => {
             _flashLoanToken: zeroAddress, //Token to take flashlaon
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address, //Handler to swap
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             isDexRepayment: false,
-            _poolFees: [0, 0, 0],
+            _poolFees: [[0, 0, 0]],
             _swapHandler: swapHandler.address,
           });
 
@@ -1468,11 +1502,11 @@ describe.only("Tests for Deposit", () => {
             _flashLoanToken: zeroAddress, //Token to take flashlaon
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address, //Handler to swap
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             isDexRepayment: false,
-            _poolFees: [0, 0, 0],
+            _poolFees: [[0, 0, 0]],
             _swapHandler: swapHandler.address,
           });
 

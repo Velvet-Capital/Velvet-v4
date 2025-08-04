@@ -66,7 +66,7 @@ contract BorrowManagerVenus is AbstractBorrowManager, IAlgebraFlashCallback {
         address(this),
         tokenBalances.lendTokens,
         accountData.totalCollateral,
-        IThena(msg.sender).globalState().fee,
+        IThena(msg.sender).globalState().lastFee,
         flashData
       );
 

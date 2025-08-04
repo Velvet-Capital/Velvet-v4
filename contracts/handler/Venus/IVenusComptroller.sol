@@ -185,4 +185,9 @@ interface IVenusComptroller {
     function venusSupplyState(address) external view returns (uint224, uint32);
 
     function vaiController() external view returns (IVAIController);
+
+    function checkMembership(
+    address user,
+    address vToken
+  ) external view returns (bool);
 }

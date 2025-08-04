@@ -136,6 +136,7 @@ describe.only("Tests for Portfolio Config", () => {
 
       protocolConfig = ProtocolConfig.attach(_protocolConfig.address);
       await protocolConfig.setCoolDownPeriod("70");
+      await protocolConfig.addSupportedCallbackCaller(addresses.aavePool);
 
       const Rebalancing = await ethers.getContractFactory("Rebalancing");
       const rebalancingDefult = await Rebalancing.deploy();
@@ -147,7 +148,9 @@ describe.only("Tests for Portfolio Config", () => {
       const assetManagementConfig = await AssetManagementConfig.deploy();
       await assetManagementConfig.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManagerAave");
+      const BorrowManager = await ethers.getContractFactory(
+        "BorrowManagerAave"
+      );
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 
@@ -243,7 +246,7 @@ describe.only("Tests for Portfolio Config", () => {
             _baseTokenRemovalVaultImplementation: tokenRemovalVault.address,
             _baseVelvetGnosisSafeModuleAddress: velvetSafeModule.address,
             _baseBorrowManager: borrowManager.address,
-            _basePositionManager: positionManagerBaseAddress.address,
+            _basePositionWrapper: positionWrapperBaseAddress.address,
             _baseExternalPositionStorage: externalPositionStorage.address,
             _gnosisSingleton: addresses.gnosisSingleton,
             _gnosisFallbackLibrary: addresses.gnosisFallbackLibrary,
@@ -714,6 +717,15 @@ describe.only("Tests for Portfolio Config", () => {
         ).to.be.true;
       });
 
+      it("transferSuperAdminOwnership should revert if new and old admin are same", async () => {
+        await expect(
+          portfolioFactory.transferSuperAdminOwnership(
+            accessController0.address,
+            owner.address
+          )
+        ).to.be.revertedWithCustomError(portfolioFactory, "InvalidAddress");
+      });
+
       it("only Super admin can transfer roles", async () => {
         await expect(
           portfolioFactory
@@ -884,7 +896,7 @@ describe.only("Tests for Portfolio Config", () => {
 
       it("claiming reward tokens should fail if protocol is paused", async () => {
         await expect(
-          rebalancing.claimRewardTokens(addresses.WETH, addresses.WETH, "0x")
+          rebalancing.claimRewardTokens(addresses.WETH, addresses.WETH, 0, "0x")
         ).to.be.revertedWithCustomError(rebalancing, "ProtocolIsPaused");
       });
 
@@ -936,7 +948,7 @@ describe.only("Tests for Portfolio Config", () => {
 
       it("claiming reward tokens should fail if reward target is not enabled", async () => {
         await expect(
-          rebalancing.claimRewardTokens(addresses.WETH, addresses.WETH, "0x")
+          rebalancing.claimRewardTokens(addresses.WETH, addresses.WETH, 0, "0x")
         ).to.be.revertedWithCustomError(rebalancing, "RewardTargetNotEnabled");
       });
 
@@ -969,7 +981,7 @@ describe.only("Tests for Portfolio Config", () => {
       it("reward token target should be usable to claim after enabling", async () => {
         // empty calldata is passed, test case with calldata in file 4
         await expect(
-          rebalancing.claimRewardTokens(addresses.WETH, addresses.WETH, "0x")
+          rebalancing.claimRewardTokens(addresses.WETH, addresses.WETH, 0, "0x")
         ).to.be.revertedWithCustomError(rebalancing, "ClaimFailed");
       });
 
@@ -990,6 +1002,15 @@ describe.only("Tests for Portfolio Config", () => {
       it("claim removed tokens should fail if protocol is emergency paused", async () => {
         await expect(
           tokenExclusionManager.claimRemovedTokens(owner.address, 1, 2)
+        ).to.be.revertedWithCustomError(
+          tokenExclusionManager,
+          "ProtocolIsPaused"
+        );
+      });
+
+      it("claim removed tokens at id should fail if protocol is emergency paused", async () => {
+        await expect(
+          tokenExclusionManager.claimTokenAtId(owner.address, 2)
         ).to.be.revertedWithCustomError(
           tokenExclusionManager,
           "ProtocolIsPaused"
@@ -1763,6 +1784,30 @@ describe.only("Tests for Portfolio Config", () => {
 
       it("owner should be able to update the token removal vault module base address", async () => {
         await portfolioFactory.setTokenRemovalVaultModule(addr1.address);
+      });
+
+      it("should fail if repay is paused", async () => {
+        await protocolConfig.setRepayPause(true);
+        await expect(
+          rebalancing.repay(addresses.aavePool, {
+            _factory: addresses.aavePool,
+            _token0: addresses.aavePool, //USDT - Pool token
+            _token1: addresses.aavePool, //USDC - Pool token
+            _flashLoanToken: addresses.ARB, //Token to take flashlaon
+            _debtToken: [addresses.ARB], //Token to pay debt of
+            _protocolToken: [addresses.aArbARB], // lending token in case of venus
+            _bufferUnit: 0, //Buffer unit for collateral amount
+            _solverHandler: addresses.aavePool, //Handler to swap
+            _swapHandler: addresses.aavePool,
+            _flashLoanAmount: [0],
+            _debtRepayAmount: [0],
+            _poolFees: [],
+            firstSwapData: [],
+            secondSwapData: [],
+            isMaxRepayment: false,
+            isDexRepayment: false,
+          })
+        ).to.be.revertedWithCustomError(rebalancing, "RepayIsPaused");
       });
     });
   });

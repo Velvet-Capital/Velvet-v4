@@ -22,6 +22,8 @@ contract PositionWrapper is
 {
   address public positionManager; // Address of the Uniswap V3 position manager.
 
+  address public parentPositionManager; // Address of the parent position manager.
+
   address public token0; // Address of the first token in the Uniswap V3 pair.
   address public token1; // Address of the second token in the Uniswap V3 pair.
   uint256 public tokenId; // ID of the Uniswap V3 position.
@@ -30,6 +32,8 @@ contract PositionWrapper is
   uint24 public initialFee; // Fee of the Uniswap V3 position.
   int24 public initialTickLower; // Lower tick of the Uniswap V3 position.
   int24 public initialTickUpper; // Upper tick of the Uniswap V3 position.
+
+  uint256 public constant MIN_MINT_AMOUNT = 1000;
 
   event TokensMinted(address user, uint256 amount);
   event TokensBurned(address user, uint256 amount);
@@ -70,6 +74,8 @@ contract PositionWrapper is
     __ERC20_init(_name, _symbol);
 
     positionManager = _positionManager;
+
+    parentPositionManager = msg.sender;
   }
 
   function setIntitialParameters(
@@ -101,6 +107,7 @@ contract PositionWrapper is
    * @dev Restricts minting functionality to the contract owner.
    */
   function mint(address to, uint256 amount) external onlyOwner {
+    if (amount < MIN_MINT_AMOUNT) revert ErrorLibrary.InvalidMintAmount();
     _mint(to, amount);
 
     emit TokensMinted(to, amount);
@@ -123,9 +130,18 @@ contract PositionWrapper is
    * @param _tokenId New token ID to be set.
    * @dev Prevents setting the same token ID as currently set to avoid redundant operations.
    */
-  function updateTokenId(uint256 _tokenId) external onlyOwner {
+  function updateTokenId(
+    uint256 _tokenId,
+    uint24 _newFee,
+    int24 _newTickLower,
+    int24 _newTickUpper
+  ) external onlyOwner {
     if (tokenId == _tokenId) revert PositionWrapperTokenIdIsTheSame();
     tokenId = _tokenId;
+
+    initialFee = _newFee;
+    initialTickLower = _newTickLower;
+    initialTickUpper = _newTickUpper;
   }
 
   /**

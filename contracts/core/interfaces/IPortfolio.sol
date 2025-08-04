@@ -120,7 +120,7 @@ interface IPortfolio {
   // For Minting Shares
   function mintShares(address _to, uint256 _amount) external;
 
-  function pullFromVault(address _token, uint256 _amount, address _to) external;
+  function pullFromVault(address _token, uint256 _amount, uint256 _value, address _to) external;
 
   /**
      * @notice The function swaps BNB into the portfolio tokens after a user makes an deposit
@@ -206,6 +206,7 @@ interface IPortfolio {
 
   function vaultInteraction(
     address _target,
+    uint256 _value,
     bytes memory _claimCalldata
   ) external;
 }

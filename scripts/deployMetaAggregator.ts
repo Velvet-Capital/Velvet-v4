@@ -5,7 +5,7 @@ async function main() {
   // Deploy MetaAggregatorSwapContract
 
   const MetaAggregatorSwapContract = await ethers.getContractFactory("MetaAggregatorSwapContract");
-  const swapContract = await MetaAggregatorSwapContract.deploy("0x38147794FF247e5Fc179eDbAE6C37fff88f68C52", "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2"); // address of ensoSwap on base and usdt on base 
+  const swapContract = await MetaAggregatorSwapContract.deploy("0x7663fd40081dcCd47805c00e613B6beAc3B87F08"); // address of ensoSwap on base and usdt on base 
   await swapContract.deployed();
 
 

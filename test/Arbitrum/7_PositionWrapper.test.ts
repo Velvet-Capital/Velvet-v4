@@ -95,7 +95,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
   }
 
   describe.only("Tests for Position Manager + Wrapper", () => {
-    const uniswapV3Router = "0xE592427A0AEce92De3Edee1F18E0157C05861564";
+    const uniswapV3Router = "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45";
 
     /// @dev The minimum tick that may be passed to #getSqrtRatioAtTick computed from log base 1.0001 of 2**-128
     const MIN_TICK = -887272;
@@ -132,7 +132,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
 
       const EnsoHandler = await ethers.getContractFactory("EnsoHandler");
       ensoHandler = await EnsoHandler.deploy(
-        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+        "0x7663fd40081dcCd47805c00e613B6beAc3B87F08"
       );
       await ensoHandler.deployed();
 
@@ -171,7 +171,16 @@ describe.only("Tests for Deposit + Withdrawal", () => {
       const positionManagerBaseAddress = await PositionManager.deploy();
       await positionManagerBaseAddress.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManagerAave");
+      await protocolConfig.enableProtocol(
+        uniswapV3ProtocolHash,
+        "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
+        "0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
+        positionManagerBaseAddress.address
+      );
+
+      const BorrowManager = await ethers.getContractFactory(
+        "BorrowManagerAave"
+      );
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 
@@ -187,13 +196,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
       await protocolConfig.setCoolDownPeriod("70");
       await protocolConfig.enableSolverHandler(ensoHandler.address);
       await protocolConfig.setSupportedFactory(ensoHandler.address);
-
-      await protocolConfig.enableProtocol(
-        uniswapV3ProtocolHash,
-        "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
-        "0xE592427A0AEce92De3Edee1F18E0157C05861564",
-        positionWrapperBaseAddress.address
-      );
+      await protocolConfig.addSupportedCallbackCaller(addresses.aavePool);
 
       const TokenExclusionManager = await ethers.getContractFactory(
         "TokenExclusionManager"
@@ -288,7 +291,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
             _baseTokenRemovalVaultImplementation: tokenRemovalVault.address,
             _baseVelvetGnosisSafeModuleAddress: velvetSafeModule.address,
             _baseBorrowManager: borrowManager.address,
-            _basePositionManager: positionManagerBaseAddress.address,
+            _basePositionWrapper: positionWrapperBaseAddress.address,
             _baseExternalPositionStorage: externalPositionStorage.address,
             _gnosisSingleton: addresses.gnosisSingleton,
             _gnosisFallbackLibrary: addresses.gnosisFallbackLibrary,
@@ -302,11 +305,6 @@ describe.only("Tests for Deposit + Withdrawal", () => {
 
       portfolioFactory = PortfolioFactory.attach(
         portfolioFactoryInstance.address
-      );
-
-      await portfolioFactory.setPositionManagerAddresses(
-        "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
-        "0xE592427A0AEce92De3Edee1F18E0157C05861564"
       );
 
       console.log("portfolioFactory address:", portfolioFactory.address);
@@ -343,7 +341,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
       await assetManagementConfig.enableUniSwapV3Manager(uniswapV3ProtocolHash);
 
       let positionManagerAddress =
-        await assetManagementConfig.positionManager();
+        await assetManagementConfig.lastDeployedPositionManager();
 
       positionManager = PositionManager.attach(positionManagerAddress);
     });
@@ -677,10 +675,11 @@ describe.only("Tests for Deposit + Withdrawal", () => {
         const signature = await owner._signTypedData(domain, types, values);
 
         // Calculation to make minimum amount value for user---------------------------------
-        let result = await portfolioCalculations.getUserAmountToDeposit(
-          amounts,
-          portfolio.address
-        );
+        let result =
+          await portfolioCalculations.callStatic.getUserAmountToDeposit(
+            amounts,
+            portfolio.address
+          );
         //-----------------------------------------------------------------------------------
 
         newAmounts = result[0];
@@ -791,10 +790,11 @@ describe.only("Tests for Deposit + Withdrawal", () => {
         const signature = await owner._signTypedData(domain, types, values);
 
         // Calculation to make minimum amount value for user---------------------------------
-        let result = await portfolioCalculations.getUserAmountToDeposit(
-          amounts,
-          portfolio.address
-        );
+        let result =
+          await portfolioCalculations.callStatic.getUserAmountToDeposit(
+            amounts,
+            portfolio.address
+          );
         //-----------------------------------------------------------------------------------
 
         newAmounts = result[0];
@@ -913,10 +913,11 @@ describe.only("Tests for Deposit + Withdrawal", () => {
         const signature = await nonOwner._signTypedData(domain, types, values);
 
         // Calculation to make minimum amount value for user---------------------------------
-        let result = await portfolioCalculations.getUserAmountToDeposit(
-          amounts,
-          portfolio.address
-        );
+        let result =
+          await portfolioCalculations.callStatic.getUserAmountToDeposit(
+            amounts,
+            portfolio.address
+          );
         //-----------------------------------------------------------------------------------
 
         newAmounts = result[0];
@@ -954,18 +955,19 @@ describe.only("Tests for Deposit + Withdrawal", () => {
         const token1 = await positionWrapper.token1();
 
         await expect(
-          positionManager.connect(nonOwner).updateRange(
-            position1,
-
-            token0,
-            token1,
-            0,
-            0,
-            0,
-            "100",
-            MIN_TICK,
-            MAX_TICK
-          )
+          positionManager.connect(nonOwner).updateRange({
+            _positionWrapper: position1,
+            _tokenIn: token0,
+            _tokenOut: token1,
+            _deployer: zeroAddress,
+            _amountIn: 0,
+            _underlyingAmountOut0: 0,
+            _underlyingAmountOut1: 0,
+            _tickLower: MIN_TICK,
+            _tickUpper: MAX_TICK,
+            _fee: 100,
+            _swapFee: 100,
+          })
         ).to.be.revertedWithCustomError(
           positionManager,
           "CallerNotAssetManager"
@@ -981,17 +983,19 @@ describe.only("Tests for Deposit + Withdrawal", () => {
         const newTickLower = -180;
         const newTickUpper = 240;
 
-        positionManager.updateRange(
-          position1,
-          token0,
-          token1,
-          0,
-          0,
-          0,
-          "100",
-          newTickLower,
-          newTickUpper
-        );
+        positionManager.updateRange({
+          _positionWrapper: position1,
+          _tokenIn: token0,
+          _tokenOut: token1,
+          _deployer: zeroAddress,
+          _amountIn: 0,
+          _underlyingAmountOut0: 0,
+          _underlyingAmountOut1: 0,
+          _tickLower: newTickLower,
+          _tickUpper: newTickUpper,
+          _fee: 100,
+          _swapFee: 100,
+        });
 
         let totalSupplyAfter = await positionWrapper.totalSupply();
         expect(totalSupplyAfter).to.be.equals(totalSupplyBefore);
@@ -1010,17 +1014,19 @@ describe.only("Tests for Deposit + Withdrawal", () => {
           newTickUpper
         );
 
-        await positionManager.updateRange(
-          position1,
-          updateRangeData.tokenIn,
-          updateRangeData.tokenOut,
-          updateRangeData.swapAmount.toString(),
-          0,
-          0,
-          100,
-          newTickLower,
-          newTickUpper
-        );
+        await positionManager.updateRange({
+          _positionWrapper: position1,
+          _tokenIn: updateRangeData.tokenIn,
+          _tokenOut: updateRangeData.tokenOut,
+          _deployer: zeroAddress,
+          _amountIn: updateRangeData.swapAmount.toString(),
+          _underlyingAmountOut0: 0,
+          _underlyingAmountOut1: 0,
+          _tickLower: newTickLower,
+          _tickUpper: newTickUpper,
+          _fee: 100,
+          _swapFee: 100,
+        });
 
         let totalSupplyAfter = await positionWrapper.totalSupply();
         expect(totalSupplyAfter).to.be.equals(totalSupplyBefore);
@@ -1053,14 +1059,13 @@ describe.only("Tests for Deposit + Withdrawal", () => {
             _flashLoanToken: zeroAddress, //Token to take flashlaon
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address, //Handler to swap
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             isDexRepayment: false,
-            _poolFees: [0, 0, 0],
+            _poolFees: [[0, 0, 0]],
             _swapHandler: swapHandler.address,
           });
-
 
         const supplyAfter = await portfolio.totalSupply();
 
@@ -1102,11 +1107,11 @@ describe.only("Tests for Deposit + Withdrawal", () => {
             _flashLoanToken: zeroAddress, //Token to take flashlaon
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address, //Handler to swap
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             isDexRepayment: false,
-            _poolFees: [0, 0, 0],
+            _poolFees: [[0, 0, 0]],
             _swapHandler: swapHandler.address,
           });
 

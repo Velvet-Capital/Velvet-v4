@@ -216,7 +216,7 @@ abstract contract VaultManagerV3_4 is
         (tokenBalance * _portfolioTokenAmount) /
         totalSupplyPortfolio;
       // Transfer each token's proportional amount from the vault to the user.
-      _pullFromVault(_token, tokenBalance, msg.sender);
+      _pullFromVault(_token, tokenBalance, 0, msg.sender);
     }
 
     // Notify listeners of the withdrawal event.
@@ -228,11 +228,13 @@ abstract contract VaultManagerV3_4 is
    * @dev Executes a token transfer via the VelvetSafeModule, ensuring secure transaction execution.
    * @param _token The token address to transfer.
    * @param _amount The amount of tokens to transfer.
+   * @param _value The ether value of the transaction
    * @param _to The recipient address of the tokens.
    */
   function _pullFromVault(
     address _token,
     uint256 _amount,
+    uint256 _value,
     address _to
   ) internal {
     // Prepare the data for ERC20 token transfer
@@ -245,6 +247,7 @@ abstract contract VaultManagerV3_4 is
     // Execute the transfer through the safe module and check for success
     (, bytes memory data) = IVelvetSafeModule(safeModule).executeWallet(
       _token,
+      _value,
       inputData
     );
 
@@ -259,14 +262,16 @@ abstract contract VaultManagerV3_4 is
    * @dev Wrapper function for `_pullFromVault` ensuring only the rebalancer contract can call it.
    * @param _token The token to be pulled from the vault.
    * @param _amount The amount of the token to pull.
+   * @param _value The ether value of the transaction
    * @param _to The destination address for the tokens.
    */
   function pullFromVault(
     address _token,
     uint256 _amount,
+    uint256 _value,
     address _to
   ) external onlyRebalancerContract {
-    _pullFromVault(_token, _amount, _to);
+    _pullFromVault(_token, _amount, _value, _to);
   }
 
   /**
@@ -303,8 +308,7 @@ abstract contract VaultManagerV3_4 is
 
     // Get current token balances in the vault for ratio calculations
     (
-      uint256[] memory tokenBalancesBefore,
-      TokenBalanceLibrary.ControllerData[] memory controllersData
+      uint256[] memory tokenBalancesBefore
     ) = TokenBalanceLibrary.getTokenBalancesOf(
         portfolioTokens,
         vault,
@@ -339,12 +343,7 @@ abstract contract VaultManagerV3_4 is
       address token = portfolioTokens[i];
       transferAmount = (_minRatio * tokenBalancesBefore[i]) / ONE_ETH_IN_WEI;
       _transferToVault(_from, token, transferAmount);
-      uint256 tokenBalanceAfter = TokenBalanceLibrary._getAdjustedTokenBalance(
-        token,
-        vault,
-        _protocolConfig,
-        controllersData
-      );
+      uint256 tokenBalanceAfter = IERC20Upgradeable(token).balanceOf(vault);
       uint256 currentRatio = _getDepositToVaultBalanceRatio(
         tokenBalanceAfter - tokenBalanceAfter,
         tokenBalanceAfter

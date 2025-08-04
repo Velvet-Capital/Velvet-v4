@@ -199,25 +199,29 @@ abstract contract VaultManager is
    * @dev Executes a token transfer via the VelvetSafeModule, ensuring secure transaction execution.
    * @param _token The token to be pulled from the vault.
    * @param _amount The amount of the token to pull.
+   * @param _value Ether value of the transaction
    * @param _to The destination address for the tokens.
    */
   function pullFromVault(
     address _token,
     uint256 _amount,
+    uint256 _value,
     address _to
   ) external onlyRebalancerContract {
-    _pullFromVault(_token, _amount, _to);
+    _pullFromVault(_token, _amount, _value, _to);
   }
 
   /**
    * @notice Internal function to handle the withdrawal of tokens from the vault.
    * @param _token The token to be pulled from the vault.
    * @param _amount The amount of the token to pull.
+   * @param _value Ether value of the transaction
    * @param _to The destination address for the tokens.
    */
   function _pullFromVault(
     address _token,
     uint256 _amount,
+    uint256 _value,
     address _to
   ) internal {
     // Prepare the data for ERC20 token transfer
@@ -230,6 +234,7 @@ abstract contract VaultManager is
     // Execute the transfer through the safe module and check for success
     (, bytes memory data) = IVelvetSafeModule(safeModule).executeWallet(
       _token,
+      _value,
       inputData
     );
 
@@ -243,28 +248,33 @@ abstract contract VaultManager is
    * @dev Claims rewards for a target address by executing a transfer through the safe module.
    * Only the rebalancer contract is allowed to call this function.
    * @param _target The address where the rewards are claimed from
+   * @param _value Ether value of the transaction
    * @param _claimCalldata The calldata to be used for the claim.
    */
   function vaultInteraction(
     address _target,
+    uint256 _value,
     bytes memory _claimCalldata
   ) external onlyRebalancerContract {
-    _vaultInteraction(_target, _claimCalldata);
+    _vaultInteraction(_target, _value, _claimCalldata);
   }
 
   /**
    * @notice Internal function to interact with the vault.
    * @dev Executes the interaction through the safe module and checks for success.
    * @param _target The address where the interaction is targeted.
+   * @param _value Ether value of the transaction
    * @param _claimCalldata The calldata to be used for the interaction.
    */
   function _vaultInteraction(
     address _target,
+    uint256 _value,
     bytes memory _claimCalldata
   ) internal {
     // Execute the transfer through the safe module and check for success
     (bool success, ) = IVelvetSafeModule(safeModule).executeWallet(
       _target,
+      _value,
       _claimCalldata
     );
 
@@ -535,6 +545,9 @@ abstract contract VaultManager is
       (tokenBalance * _portfolioTokenAmount) /
       totalSupplyPortfolio;
 
+    
+
+    // Execute the transfer through the safe module and check for success
     // Prepare the data for ERC20 token transfer
     bytes memory inputData = abi.encodeWithSelector(
       IERC20Upgradeable.transfer.selector,
@@ -542,24 +555,30 @@ abstract contract VaultManager is
       tokenBalance
     );
 
-    // Execute the transfer through the safe module and check for success
-    try IVelvetSafeModule(safeModule).executeWallet(_token, inputData) {
-      // Check if the token balance is zero and the current token is not an exemption token, revert with an error.
-      // This check is necessary because if there is any rebase token or the protocol sets the balance to zero,
-      // we need to be able to withdraw other tokens. The balance for a withdrawal should always be >0,
-      // except when the user accepts to lose this token.
-      if (tokenBalance == 0) {
+    // Manually perform the call and decode the result
+    (bool success, bytes memory returnData) = IVelvetSafeModule(safeModule).executeWallet(
+        _token,
+        0,
+        inputData
+    );
+
+    // Confirm the call succeeded and returnData indicates success
+    bool transferSucceeded = success && (returnData.length == 0 || abi.decode(returnData, (bool)));
+
+    if (!transferSucceeded) {
+        if (_exemptionTokens[exemptionIndex] != _token) {
+            revert ErrorLibrary.InvalidExemptionTokens();
+        }
+        return (0, exemptionIndex + 1);
+    }
+
+    // Optionally still check for 0 balance (as in your old logic)
+    if (tokenBalance == 0) {
         if (_exemptionTokens[exemptionIndex] == _token) exemptionIndex += 1;
         else revert ErrorLibrary.WithdrawalAmountIsSmall();
-      }
-      return (tokenBalance, exemptionIndex);
-    } catch {
-      // Checking if exception token was mentioned in exceptionToken array
-      if (_exemptionTokens[exemptionIndex] != _token) {
-        revert ErrorLibrary.InvalidExemptionTokens();
-      }
-      return (0, exemptionIndex + 1);
     }
+
+    return (tokenBalance, exemptionIndex);
   }
 
   /**
@@ -615,8 +634,7 @@ abstract contract VaultManager is
     (
       uint256 amountLength,
       address[] memory portfolioTokens,
-      uint256[] memory tokenBalancesBefore,
-      TokenBalanceLibrary.ControllerData[] memory controllersData
+      uint256[] memory tokenBalancesBefore
     ) = _validateAndGetBalances(depositAmounts);
 
     try permit2.permit(msg.sender, _permit, _signature) {
@@ -642,8 +660,7 @@ abstract contract VaultManager is
         depositAmounts,
         portfolioTokens,
         tokenBalancesBefore,
-        true,
-        controllersData
+        true
       );
   }
 
@@ -662,8 +679,7 @@ abstract contract VaultManager is
     (
       uint256 amountLength,
       address[] memory portfolioTokens,
-      uint256[] memory tokenBalancesBefore,
-      TokenBalanceLibrary.ControllerData[] memory controllersData
+      uint256[] memory tokenBalancesBefore
     ) = _validateAndGetBalances(depositAmounts);
 
     // Handles the token transfer and minRatio calculations
@@ -674,8 +690,7 @@ abstract contract VaultManager is
         depositAmounts,
         portfolioTokens,
         tokenBalancesBefore,
-        false,
-        controllersData
+        false
       );
   }
 
@@ -690,12 +705,10 @@ abstract contract VaultManager is
     uint256[] calldata depositAmounts
   )
     internal
-    view
     returns (
       uint256,
       address[] memory,
-      uint256[] memory,
-      TokenBalanceLibrary.ControllerData[] memory
+      uint256[] memory
     )
   {
     uint256 amountLength = depositAmounts.length;
@@ -708,8 +721,7 @@ abstract contract VaultManager is
 
     // Get current token balances in the vault for ratio calculations
     (
-      uint256[] memory tokenBalancesBefore,
-      TokenBalanceLibrary.ControllerData[] memory controllersData
+      uint256[] memory tokenBalancesBefore
     ) = TokenBalanceLibrary.getTokenBalancesOf(
         portfolioTokens,
         vault,
@@ -719,8 +731,7 @@ abstract contract VaultManager is
     return (
       amountLength,
       portfolioTokens,
-      tokenBalancesBefore,
-      controllersData
+      tokenBalancesBefore
     );
   }
 
@@ -740,8 +751,7 @@ abstract contract VaultManager is
     uint256[] calldata depositAmounts,
     address[] memory portfolioTokens,
     uint256[] memory tokenBalancesBefore,
-    bool usePermit,
-    TokenBalanceLibrary.ControllerData[] memory controllersData
+    bool usePermit
   ) internal returns (uint256) {
     if (totalSupply() == 0) {
       return
@@ -767,8 +777,7 @@ abstract contract VaultManager is
         portfolioTokens,
         tokenBalancesBefore,
         _minRatio,
-        usePermit,
-        controllersData
+        usePermit
       );
   }
 
@@ -847,7 +856,6 @@ abstract contract VaultManager is
    * @param tokenBalancesBefore An array of token balances before the transfer.
    * @param _minRatio The minimum ratio calculated before transfers.
    * @param usePermit A boolean indicating whether to use permit for transfers.
-   * @param controllersData An array of controller data for balance calculations.
    * @return uint256 The new minimum ratio after all transfers are completed.
    */
   function _executeTransfers(
@@ -856,8 +864,7 @@ abstract contract VaultManager is
     address[] memory portfolioTokens,
     uint256[] memory tokenBalancesBefore,
     uint256 _minRatio,
-    bool usePermit,
-    TokenBalanceLibrary.ControllerData[] memory controllersData
+    bool usePermit
   ) private returns (uint256) {
     uint256[] memory depositedAmounts = new uint256[](amountLength);
     uint256 _minRatioAfterTransfer = type(uint256).max;
@@ -871,14 +878,33 @@ abstract contract VaultManager is
 
       _transferToken(_from, token, transferAmount, usePermit);
 
-      uint256 tokenBalanceAfter = TokenBalanceLibrary._getAdjustedTokenBalance(
+      // (uint256 tokenBalanceAfter) = TokenBalanceLibrary._getAdjustedTokenBalance(
+      //   token,
+      //   vault,
+      //   _protocolConfig,
+      //   controllersData
+      // );
+
+      uint256 tokenBalanceAfter = IERC20Upgradeable(token).balanceOf(vault);
+      uint256 tokenBalanceDiff = tokenBalanceAfter - tokenBalanceBefore;
+
+      bool isCollateralEnabled = TokenBalanceLibrary.isCollateralEnabled(
         token,
         vault,
-        _protocolConfig,
-        controllersData
+        _protocolConfig
       );
+
+      if (isCollateralEnabled) {
+        tokenBalanceDiff = transferAmount;
+        tokenBalanceAfter = tokenBalanceBefore + transferAmount;
+      }
+
+      if(tokenBalanceDiff == 0) {
+        revert ErrorLibrary.TransferFailed();
+      }
+      
       uint256 currentRatio = _getDepositToVaultBalanceRatio(
-        tokenBalanceAfter - tokenBalanceBefore,
+        tokenBalanceDiff,
         tokenBalanceAfter
       );
       _minRatioAfterTransfer = MathUtils._min(
@@ -886,7 +912,6 @@ abstract contract VaultManager is
         _minRatioAfterTransfer
       );
     }
-
     emit UserDepositedAmounts(depositedAmounts, portfolioTokens);
     return _minRatioAfterTransfer;
   }

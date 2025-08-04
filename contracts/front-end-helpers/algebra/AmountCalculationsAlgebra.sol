@@ -57,8 +57,7 @@ contract AmountCalculationsAlgebra {
       factory.poolByPair(_positionWrapper.token0(), _positionWrapper.token1())
     );
 
-    int24 tick = pool.globalState().tick;
-    uint160 sqrtRatioX96 = TickMath.getSqrtRatioAtTick(tick);
+    uint160 sqrtRatioX96 = pool.globalState().price;
     uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(_tickLower);
     uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(_tickUpper);
 

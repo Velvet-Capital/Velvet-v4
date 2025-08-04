@@ -55,7 +55,6 @@ interface IAssetHandler {
     address[] memory portfolioTokens
   )
     external
-    view
     returns (
       FunctionParameters.AccountData memory accountData,
       FunctionParameters.TokenAddresses memory tokenBalances
@@ -66,12 +65,6 @@ interface IAssetHandler {
     address comptroller
   ) external view returns (address[] memory borrowedTokens);
 
-  function getInvestibleBalance(
-    address _token,
-    address _vault,
-    address _controller,
-    address[] memory _portfolioTokens
-  ) external view returns (uint256);
 
   function loanProcessing(
     address vault,
@@ -92,6 +85,7 @@ interface IAssetHandler {
     address _receiver,
     uint256 _portfolioTokenAmount,
     uint256 _totalSupply,
+    uint256 _counter,
     address[] memory borrowedTokens,
     FunctionParameters.withdrawRepayParams calldata repayData
   ) external;
@@ -111,4 +105,15 @@ interface IAssetHandler {
     uint256 totalCollateral,
     uint256 bufferUnit
   ) external view returns (uint256[] memory amounts);
+
+  /**
+   * @notice Checks if a token is being used as collateral by the vault.
+   * @param token The token address.
+   * @param vault The vault address.
+   * @param controller The controller address.
+   * @return True if the token is enabled as collateral; otherwise false.
+   */
+  function isCollateralEnabled(address token, address vault, address controller) external view returns (bool);
+
+  function getUnderlyingToken(address token) external view returns (address);
 }

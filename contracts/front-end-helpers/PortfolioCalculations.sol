@@ -140,12 +140,12 @@ contract PortfolioCalculations is ExponentialNoError {
   function getUserAmountToDeposit(
     uint256[] memory userAmounts,
     address _portfolio
-  ) external view returns (uint256[] memory, uint256 _desiredShare) {
+  ) external returns (uint256[] memory, uint256 _desiredShare) {
     IPortfolio portfolio = IPortfolio(_portfolio);
     IProtocolConfig _protocolConfig = IProtocolConfig(
       portfolio.protocolConfig()
     );
-    (uint256[] memory vaultBalance, ) = TokenBalanceLibrary.getTokenBalancesOf(
+    uint256[] memory vaultBalance = TokenBalanceLibrary.getTokenBalancesOf(
       portfolio.getTokens(),
       portfolio.vault(),
       _protocolConfig
@@ -191,7 +191,7 @@ contract PortfolioCalculations is ExponentialNoError {
   function getWithdrawalAmounts(
     uint256 _portfolioTokenAmount,
     address _portfolio
-  ) external view returns (uint256[] memory) {
+  ) external returns (uint256[] memory) {
     IPortfolio portfolio = IPortfolio(_portfolio);
 
     address[] memory tokens = portfolio.getTokens();
@@ -654,7 +654,16 @@ contract PortfolioCalculations is ExponentialNoError {
   }
 
   function getPoolFee(address _pool) external view returns (uint256) {
-    return IThena(_pool).globalState().fee;
+    return IThena(_pool).globalState().lastFee;
+  }
+
+  function getFlashLoanFeeFromPool(
+    address _factory,
+    address _token0,
+    address _token1
+  ) external view returns (uint256) {
+    address poolAddress = IThena(_factory).poolByPair(_token0, _token1);
+    return IThena(poolAddress).globalState().lastFee;
   }
 
   function getCollateralAmountToSell(
@@ -666,7 +675,7 @@ contract PortfolioCalculations is ExponentialNoError {
     uint256[] memory _debtRepayAmount,
     uint256 feeUnit, //Flash loan fee unit
     uint256 bufferUnit //Buffer unit is the buffer percentage in terms of 1/100000
-  ) external view returns (uint256[] memory amounts) {
+  ) external returns (uint256[] memory amounts) {
     // Use the new struct-based return for getUserAccountData
     (
       FunctionParameters.AccountData memory accountData,
@@ -730,7 +739,7 @@ contract PortfolioCalculations is ExponentialNoError {
     uint256 borrowBalance,
     uint256 totalCollateral
   ) internal pure returns (uint256 debtValue, uint256 percentageToRemove) {
-    uint256 feeAmount = (_debtRepayAmount * 10 ** 18 * feeUnit) / 10 ** 22;
+    uint256 feeAmount = (_debtRepayAmount * 10 ** 18 * feeUnit) / 10 ** 24;
     uint256 debtAmountWithFee = _debtRepayAmount + feeAmount;
     debtValue = (debtAmountWithFee * totalDebt * 10 ** 18) / borrowBalance;
     percentageToRemove = debtValue / totalCollateral;
@@ -745,7 +754,7 @@ contract PortfolioCalculations is ExponentialNoError {
     uint256[] memory _debtRepayAmount,
     uint256 feeUnit, //Flash loan fee unit
     uint256 bufferUnit
-  ) public view returns (uint256[] memory amounts) {
+  ) public returns (uint256[] memory amounts) {
     (
       FunctionParameters.AccountData memory accountData,
       FunctionParameters.TokenAddresses memory tokenAddresses

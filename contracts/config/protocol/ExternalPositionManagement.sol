@@ -12,11 +12,13 @@ abstract contract ExternalPositionManagement is OwnableCheck, Initializable {
   event AllowedRatioDeviationBpsUpdated(uint256 indexed _newDeviationBps);
   event UpgradePositionWrapper(address indexed newImplementation);
   event UpdatedSlippageFeeReinvestment(uint256 indexed _newSlippage);
-
+  event ProtocolDisabled(bytes32 indexed protocolId);
   /// @notice The maximum allowed deviation from the target ratio for external positions, measured in basis points.
   uint256 public allowedRatioDeviationBps;
   /// @notice The accepted slippage for fee reinvestment, measured in basis points.
   uint256 public acceptedSlippageFeeReinvestment;
+  /// @notice The dust threshold for swap amounts, measured in USD.
+  uint256 public swapAmountDustThreshold;
 
   /// @notice A mapping that stores information about enabled protocols.
   mapping(bytes32 => ProtocolInfo) public protocols;
@@ -24,7 +26,7 @@ abstract contract ExternalPositionManagement is OwnableCheck, Initializable {
   struct ProtocolInfo {
     address nftManager;
     address swapRouter;
-    address positionWrapperBase;
+    address positionManagerBase;
     bool enabled;
   }
 
@@ -32,12 +34,13 @@ abstract contract ExternalPositionManagement is OwnableCheck, Initializable {
     bytes32 indexed protocolId,
     address nftManager,
     address swapRouter,
-    address positionWrapperBase
+    address positionManagerBase
   );
 
   function __ExternalPositionManagement_init() internal onlyInitializing {
     allowedRatioDeviationBps = 50;
     acceptedSlippageFeeReinvestment = 100;
+    swapAmountDustThreshold = 1 ether;
   }
 
   /**
@@ -45,24 +48,24 @@ abstract contract ExternalPositionManagement is OwnableCheck, Initializable {
    * @param protocolId The identifier for the protocol (e.g., keccak256("UNISWAP_V3"))
    * @param nftManager The NFT manager contract address for the protocol
    * @param swapRouter The swap router contract address for the protocol
-   * @param positionWrapperBase The position wrapper base implementation address
+   * @param positionManagerBase The position manager base implementation address
    */
   function enableProtocol(
     bytes32 protocolId,
     address nftManager,
     address swapRouter,
-    address positionWrapperBase
+    address positionManagerBase
   ) external onlyProtocolOwner {
     if (
       nftManager == address(0) ||
       swapRouter == address(0) ||
-      positionWrapperBase == address(0)
+      positionManagerBase == address(0)
     ) revert ErrorLibrary.InvalidAddress();
 
     protocols[protocolId] = ProtocolInfo({
       nftManager: nftManager,
       swapRouter: swapRouter,
-      positionWrapperBase: positionWrapperBase,
+      positionManagerBase: positionManagerBase,
       enabled: true
     });
 
@@ -70,7 +73,7 @@ abstract contract ExternalPositionManagement is OwnableCheck, Initializable {
       protocolId,
       nftManager,
       swapRouter,
-      positionWrapperBase
+      positionManagerBase
     );
   }
 
@@ -80,6 +83,8 @@ abstract contract ExternalPositionManagement is OwnableCheck, Initializable {
    */
   function disableProtocol(bytes32 protocolId) external onlyProtocolOwner {
     protocols[protocolId].enabled = false;
+
+    emit ProtocolDisabled(protocolId);
   }
 
   /**
@@ -111,10 +116,10 @@ abstract contract ExternalPositionManagement is OwnableCheck, Initializable {
    * @param protocolId The identifier for the protocol.
    * @return The address of the position wrapper base implementation.
    */
-  function getPositionWrapperBaseImplementation(
+  function getPositionManagerBaseImplementation(
     bytes32 protocolId
   ) external view returns (address) {
-    return protocols[protocolId].positionWrapperBase;
+    return protocols[protocolId].positionManagerBase;
   }
 
   /**
@@ -126,7 +131,7 @@ abstract contract ExternalPositionManagement is OwnableCheck, Initializable {
     bytes32 protocolId,
     address newImplementation
   ) external onlyProtocolOwner {
-    protocols[protocolId].positionWrapperBase = newImplementation;
+    protocols[protocolId].positionManagerBase = newImplementation;
   }
 
   /**

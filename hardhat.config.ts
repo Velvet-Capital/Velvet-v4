@@ -78,6 +78,7 @@ const config: HardhatUserConfig = {
         url: forkingUrl ? forkingUrl : "",
       },
       chainId: Number(forkNetwork),
+      gas: 12000000
     },
     ganache: {
       chainId: 5777,

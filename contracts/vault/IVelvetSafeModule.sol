@@ -10,6 +10,7 @@ interface IVelvetSafeModule {
 
   function executeWallet(
     address handlerAddresses,
+    uint256 value,
     bytes calldata encodedCalls
   ) external returns (bool, bytes memory);
 }

@@ -4,6 +4,7 @@ pragma solidity 0.8.17;
 import { IPositionWrapper } from "../abstract/IPositionWrapper.sol";
 import { IFactory } from "../uniswapV3/IFactory.sol";
 import { IPool } from "./IPool.sol";
+import { IPriceOracle } from "../../oracle/IPriceOracle.sol";
 
 import "@cryptoalgebra/integral-core/contracts/libraries/FullMath.sol";
 import "@cryptoalgebra/integral-core/contracts/libraries/Constants.sol";
@@ -11,6 +12,8 @@ import "@cryptoalgebra/integral-core/contracts/libraries/Constants.sol";
 import "@cryptoalgebra/integral-core/contracts/libraries/TickMath.sol";
 
 import { LiquidityAmounts } from "../abstract/LiquidityAmounts.sol";
+
+import { IERC20Metadata } from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 
 library LiquidityAmountsCalculations {
   function _getUnderlyingAmounts(
@@ -29,8 +32,7 @@ library LiquidityAmountsCalculations {
       )
     );
 
-    int24 tick = pool.slot0().tick;
-    uint160 sqrtRatioX96 = TickMath.getSqrtRatioAtTick(tick);
+    uint160 sqrtRatioX96 = pool.slot0().sqrtPriceX96;
 
     (amount0, amount1) = LiquidityAmounts.getAmountsForLiquidity(
       sqrtRatioX96,
@@ -66,7 +68,44 @@ library LiquidityAmountsCalculations {
       ratio = 0;
       tokenZeroBalance = _token1;
     } else {
-      ratio = (amount0 * 1e18) / amount1;
+      uint8 decimals0 = IERC20Metadata(_token0).decimals();
+      uint8 decimals1 = IERC20Metadata(_token1).decimals();
+
+      uint256 normalizedAmount0 = amount0 * (10 ** (18 - decimals0));
+      uint256 normalizedAmount1 = amount1 * (10 ** (18 - decimals1));
+
+      ratio = (normalizedAmount0 * 1e18) / normalizedAmount1;
     }
+  }
+
+  function getPoolRatioUSDBased(
+    IPositionWrapper _positionWrapper,
+    IPriceOracle _priceOracle,
+    address _factory,
+    address _token0,
+    address _token1,
+    int24 _tickLower,
+    int24 _tickUpper
+  ) internal returns (uint256 ratio) {
+    uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(_tickLower);
+    uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(_tickUpper);
+
+    (uint256 amount0, uint256 amount1) = _getUnderlyingAmounts(
+      _positionWrapper,
+      _factory,
+      sqrtRatioAX96,
+      sqrtRatioBX96,
+      1 ether
+    );
+
+    uint256 price0 = _priceOracle.convertToUSD18Decimals(_token0, amount0);
+    uint256 price1 = _priceOracle.convertToUSD18Decimals(_token1, amount1);
+
+    // Prevent division by zero
+    if (price1 == 0) {
+      return 100e16; // 100% token0 position
+    }
+
+    ratio = (price0 * 1e18) / price1;
   }
 }

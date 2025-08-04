@@ -50,7 +50,7 @@ contract PortfolioDeployment is Script, Addresses {
           _baseTokenRemovalVaultImplementation: tokenRemovalVault,
           _baseVelvetGnosisSafeModuleAddress: safe,
           _gnosisSingleton: BSC_GNOSIS_SINGLETON,
-          _basePositionManager: address(0), // @todo add base implementation
+          _basePositionWrapper: address(0), // @todo add base implementation
           _baseExternalPositionStorage: address(0), // @todo add base implementation
           _baseBorrowManager: address(0), // @todo add base implementation
           _gnosisFallbackLibrary: BSC_GNOSIS_FALLBACK_LIB,

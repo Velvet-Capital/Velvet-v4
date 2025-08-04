@@ -19,19 +19,21 @@ import { IExternalPositionStorage } from "../../wrappers/abstract/IExternalPosit
  *      Provides functionality to initialize position management and enable Uniswap V3 wrappers.
  */
 abstract contract ExternalPositionManagement is AccessRoles {
-  IPositionManager public positionManager; // Interface to interact with the position manager.
   address public externalPositions; // Interface to interact with external positions.
   bool public uniswapV3WrapperEnabled; // Flag to indicate if the Uniswap V3 wrapper is enabled.
 
-  address basePositionManager; // Address of the base implementation for position manager cloning.
+  address public basePositionWrapper; // Address of the base implementation for position wrapper cloning.
   address accessControllerAddress; // Address of the access controller for role management.
 
   address public protocolConfig; // Address of the protocol config.
+
+  mapping(bytes32 => IPositionManager) public positionManagers;
 
   // Mapping to track whitelisted protocols
   mapping(bytes32 => bool) public whitelistedProtocols;
 
   mapping(bytes32 => bool) public positionManagerEnabled;
+  address public lastDeployedPositionManager;
 
   event UniswapV3ManagerEnabled();
   event ProtocolManagerEnabled(bytes32 indexed protocolId);
@@ -41,27 +43,29 @@ abstract contract ExternalPositionManagement is AccessRoles {
   /**
    * @notice Initializes the contract with necessary configurations for external position management.
    * @param _accessControllerAddress Address of the access controller for managing permissions.
-   * @param _basePositionManager Address of the base position manager for creating clones.
+   * @param _basePositionWrapper Address of the base position manager for creating clones.
    * @dev Internal initializer function to set up initial state.
    */
   function ExternalPositionManagement__init(
     address _protocolConfig,
     address _accessControllerAddress,
-    address _basePositionManager,
+    address _basePositionWrapper,
     address _baseExternalPositionStorage,
     bytes32[] calldata _witelistedProtocolIds
   ) internal {
-    ERC1967Proxy externalPositionStorageProxy = new ERC1967Proxy(
-      _baseExternalPositionStorage,
-      abi.encodeWithSelector(
-        IExternalPositionStorage.init.selector,
-        _accessControllerAddress
-      )
-    );
+    if (externalPositions == address(0)) {
+      ERC1967Proxy externalPositionStorageProxy = new ERC1967Proxy(
+        _baseExternalPositionStorage,
+        abi.encodeWithSelector(
+          IExternalPositionStorage.init.selector,
+          _accessControllerAddress
+        )
+      );
+      externalPositions = address(externalPositionStorageProxy);
+    }
 
-    externalPositions = address(externalPositionStorageProxy);
     accessControllerAddress = _accessControllerAddress;
-    basePositionManager = _basePositionManager;
+    basePositionWrapper = _basePositionWrapper;
 
     whitelistProtocols(_witelistedProtocolIds);
 
@@ -108,7 +112,9 @@ abstract contract ExternalPositionManagement is AccessRoles {
 
     // Deploy and initialize the position manager.
     ERC1967Proxy positionManagerProxy = new ERC1967Proxy(
-      basePositionManager,
+      IProtocolConfig(protocolConfig).getPositionManagerBaseImplementation(
+        protocolId
+      ),
       abi.encodeWithSelector(
         IPositionManager.init.selector,
         externalPositions,
@@ -121,7 +127,11 @@ abstract contract ExternalPositionManagement is AccessRoles {
       )
     );
 
-    positionManager = IPositionManager(address(positionManagerProxy));
+    positionManagers[protocolId] = IPositionManager(
+      address(positionManagerProxy)
+    );
+
+    lastDeployedPositionManager = address(positionManagerProxy);
 
     IAccessController(accessControllerAddress).setupPositionManagerRole(
       address(positionManagerProxy)

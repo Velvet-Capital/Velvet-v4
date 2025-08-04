@@ -77,9 +77,9 @@ export async function createMetaAggregatorCalldata(
     tokenIn: _tokenIn,
     tokenOut: _tokenOut,
     sender: handler,
-    receiver: receiver, 
+    receiver: receiver,
     chainID: 8453,
-    isDelegate: true
+    isDelegate: true,
   };
 
   console.log(priceParams);
@@ -273,6 +273,7 @@ export async function increaseLiquidity(
     _tokenIn: token0,
     _tokenOut: token1,
     _amountIn: 0,
+    _fee: 100,
   });
 }
 
@@ -321,9 +322,11 @@ export async function decreaseLiquidity(
       balance,
       0,
       0,
+      ethers.constants.AddressZero,
       token0,
       token1,
-      0
+      0,
+      100
     );
 
   let balanceT0After = await ERC20Upgradeable.attach(token0).balanceOf(
