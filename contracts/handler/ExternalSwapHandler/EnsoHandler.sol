@@ -9,7 +9,8 @@ import { IPositionManager } from "../../wrappers/abstract/IPositionManager.sol";
 import { FunctionParameters } from "../../FunctionParameters.sol";
 import { ExternalPositionManagement } from "./ExternalPositionManagement.sol";
 import { IExternalPositionStorage } from "../../wrappers/abstract/IExternalPositionStorage.sol";
-
+import { IAssetManagementConfig } from "../../config/assetManagement/IAssetManagementConfig.sol";
+import { IPositionWrapper } from "../../wrappers/abstract/IPositionWrapper.sol";
 /**
  * @title EnsoHandler
  * @dev This contract is designed to interface with the Enso platform, facilitating
@@ -107,9 +108,9 @@ contract EnsoHandler is IIntentHandler, ExternalPositionManagement {
       // Two-dimensional to match the structure of callDataIncreaseLiquidity
       address[] memory underlyingTokensDecreaseLiquidity, // Array of underlying tokens for decreasing liquidity
       // One-dimensional as it's a flat list of tokens
-      address[] memory tokensIn, // Array of input token addresses
-      address[] memory tokensOut, // Array of output token addresses
-      uint256[] memory minExpectedOutputAmounts // Array of minimum expected output amounts
+      address[][] memory tokensIn, // Array of input token addresses, two-dimensional to match output structure
+      address[][] memory tokensOut, // Array of output token addresses
+      uint256[][] memory minExpectedOutputAmounts // Array of minimum expected output amounts
     ) = abi.decode(
         _params._calldata,
         (
@@ -118,9 +119,9 @@ contract EnsoHandler is IIntentHandler, ExternalPositionManagement {
           bytes[][],
           address[][],
           address[],
-          address[],
-          address[],
-          uint256[]
+          address[][],
+          address[][],
+          uint256[][]
         )
       );
 
@@ -138,20 +139,24 @@ contract EnsoHandler is IIntentHandler, ExternalPositionManagement {
     if (_params._to == address(0)) revert ErrorLibrary.InvalidAddress();
 
     for (uint256 i; i < tokensLength; i++) {
-      address token = tokensOut[i]; // Optimize gas by caching the token address.
-      uint256 buyBalanceBefore = IERC20Upgradeable(token).balanceOf(
-        address(this)
-      );
+      //address token = tokensOut[i]; // Optimize gas by caching the token address.
+      uint256 tokensOutLength = tokensOut[i].length;
+      uint256[] memory buyBalanceBefore = new uint256[](tokensOutLength);
+      for (uint256 j; j < tokensOutLength; j++) {
+        buyBalanceBefore[j] = IERC20Upgradeable(tokensOut[i][j]).balanceOf(
+          address(this)
+        );
+      }
 
       // Handle wrapped positions for input tokens: Decreases liquidity from wrapped positions
       if (
         address(_params._positionManager) != address(0) && // PositionManager has not been initialized
         IExternalPositionStorage(
           IPositionManager(_params._positionManager).externalPositionStorage()
-        ).isWrappedPosition(tokensIn[i])
+        ).isWrappedPosition(tokensIn[i][0])
       ) {
         _handleWrappedPositionDecrease(
-          address(_params._positionManager),
+          IPositionWrapper(tokensIn[i][0]).parentPositionManager(),
           callDataDecreaseLiquidity[i]
         );
       }
@@ -164,7 +169,7 @@ contract EnsoHandler is IIntentHandler, ExternalPositionManagement {
         address(_params._positionManager) != address(0) && // PositionManager has not been initialized
         IExternalPositionStorage(
           IPositionManager(_params._positionManager).externalPositionStorage()
-        ).isWrappedPosition(token)
+        ).isWrappedPosition(tokensOut[i][0])
       ) {
         _handleWrappedPositionIncrease(
           increaseLiquidityTarget[i],
@@ -172,8 +177,8 @@ contract EnsoHandler is IIntentHandler, ExternalPositionManagement {
         );
       }
 
-      _transferTokensAndVerify(
-        token,
+      _transferMultipleTokensAndVerify(
+        tokensOut[i],
         _params._to,
         buyBalanceBefore,
         minExpectedOutputAmounts[i]
@@ -182,7 +187,22 @@ contract EnsoHandler is IIntentHandler, ExternalPositionManagement {
 
     _returnDust(underlyingTokensDecreaseLiquidity, _params._to);
 
-    return tokensOut;
+    // Flatten the 2D array into a 1D array for interface compliance
+    uint256 totalLength = 0;
+    for (uint256 i = 0; i < tokensOut.length; i++) {
+      totalLength += tokensOut[i].length;
+    }
+
+    address[] memory flattenedTokens = new address[](totalLength);
+    uint256 currentIndex = 0;
+    for (uint256 i = 0; i < tokensOut.length; i++) {
+      for (uint256 j = 0; j < tokensOut[i].length; j++) {
+        flattenedTokens[currentIndex] = tokensOut[i][j];
+        currentIndex++;
+      }
+    }
+
+    return flattenedTokens;
   }
 
   /// @notice Executes a series of swap operations

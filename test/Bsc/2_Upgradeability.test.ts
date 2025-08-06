@@ -151,13 +151,15 @@ describe.only("Tests for Upgradeability", () => {
       const assetManagementConfig = await AssetManagementConfig.deploy();
       await assetManagementConfig.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManagerVenus");
+      const BorrowManager = await ethers.getContractFactory(
+        "BorrowManagerVenus"
+      );
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 
       const EnsoHandler = await ethers.getContractFactory("EnsoHandler");
       ensoHandler = await EnsoHandler.deploy(
-        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+        "0x7663fd40081dcCd47805c00e613B6beAc3B87F08"
       );
       await ensoHandler.deployed();
 
@@ -269,7 +271,7 @@ describe.only("Tests for Upgradeability", () => {
             _baseTokenRemovalVaultImplementation: tokenRemovalVault.address,
             _baseVelvetGnosisSafeModuleAddress: velvetSafeModule.address,
             _baseBorrowManager: borrowManager.address,
-            _basePositionManager: positionManagerBaseAddress.address,
+            _basePositionWrapper: positionWrapperBaseAddress.address,
             _baseExternalPositionStorage: externalPositionStorage.address,
             _gnosisSingleton: addresses.gnosisSingleton,
             _gnosisFallbackLibrary: addresses.gnosisFallbackLibrary,
@@ -512,10 +514,11 @@ describe.only("Tests for Upgradeability", () => {
         const signature = await nonOwner._signTypedData(domain, types, values);
 
         // Calculation to make minimum amount value for user---------------------------------
-        let result = await portfolioCalculations.getUserAmountToDeposit(
-          amounts,
-          portfolio.address
-        );
+        let result =
+          await portfolioCalculations.callStatic.getUserAmountToDeposit(
+            amounts,
+            portfolio.address
+          );
         //-----------------------------------------------------------------------------------
 
         newAmounts = result[0];
@@ -564,11 +567,11 @@ describe.only("Tests for Upgradeability", () => {
             _flashLoanToken: zeroAddress, //Token to take flashlaon
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address, //Handler to swap
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             isDexRepayment: false,
-            _poolFees: [0, 0, 0],
+            _poolFees: [[0, 0, 0]],
             _swapHandler: swapHandler.address,
           }
         );
@@ -690,11 +693,11 @@ describe.only("Tests for Upgradeability", () => {
             _flashLoanToken: zeroAddress, //Token to take flashlaon
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address, //Handler to swap
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             isDexRepayment: false,
-            _poolFees: [0, 0, 0],
+            _poolFees: [[0, 0, 0]],
             _swapHandler: swapHandler.address,
           });
 
@@ -912,10 +915,11 @@ describe.only("Tests for Upgradeability", () => {
         const signature = await nonOwner._signTypedData(domain, types, values);
 
         // Calculation to make minimum amount value for user---------------------------------
-        let result = await portfolioCalculations.getUserAmountToDeposit(
-          amounts,
-          portfolio.address
-        );
+        let result =
+          await portfolioCalculations.callStatic.getUserAmountToDeposit(
+            amounts,
+            portfolio.address
+          );
         //-----------------------------------------------------------------------------------
 
         newAmounts = result[0];
@@ -963,11 +967,11 @@ describe.only("Tests for Upgradeability", () => {
             _flashLoanToken: zeroAddress, //Token to take flashlaon
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address, //Handler to swap
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             isDexRepayment: false,
-            _poolFees: [0, 0, 0],
+            _poolFees: [[0, 0, 0]],
             _swapHandler: swapHandler.address,
           }
         );
@@ -1089,11 +1093,11 @@ describe.only("Tests for Upgradeability", () => {
             _flashLoanToken: zeroAddress, //Token to take flashlaon
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address, //Handler to swap
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             isDexRepayment: false,
-            _poolFees: [0, 0, 0],
+            _poolFees: [[0, 0, 0]],
             _swapHandler: swapHandler.address,
           });
 
@@ -1306,10 +1310,11 @@ describe.only("Tests for Upgradeability", () => {
         const signature = await nonOwner._signTypedData(domain, types, values);
 
         // Calculation to make minimum amount value for user---------------------------------
-        let result = await portfolioCalculations.getUserAmountToDeposit(
-          amounts,
-          portfolio.address
-        );
+        let result =
+          await portfolioCalculations.callStatic.getUserAmountToDeposit(
+            amounts,
+            portfolio.address
+          );
         //-----------------------------------------------------------------------------------
 
         newAmounts = result[0];
@@ -1357,11 +1362,11 @@ describe.only("Tests for Upgradeability", () => {
             _flashLoanToken: zeroAddress, //Token to take flashlaon
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address, //Handler to swap
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             isDexRepayment: false,
-            _poolFees: [0, 0, 0],
+            _poolFees: [[0, 0, 0]],
             _swapHandler: swapHandler.address,
           }
         );
@@ -1483,11 +1488,11 @@ describe.only("Tests for Upgradeability", () => {
             _flashLoanToken: zeroAddress, //Token to take flashlaon
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address, //Handler to swap
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             isDexRepayment: false,
-            _poolFees: [0, 0, 0],
+            _poolFees: [[0, 0, 0]],
             _swapHandler: swapHandler.address,
           });
 
@@ -1690,10 +1695,11 @@ describe.only("Tests for Upgradeability", () => {
         const signature = await nonOwner._signTypedData(domain, types, values);
 
         // Calculation to make minimum amount value for user---------------------------------
-        let result = await portfolioCalculations.getUserAmountToDeposit(
-          amounts,
-          portfolio.address
-        );
+        let result =
+          await portfolioCalculations.callStatic.getUserAmountToDeposit(
+            amounts,
+            portfolio.address
+          );
         //-----------------------------------------------------------------------------------
 
         newAmounts = result[0];
@@ -1739,11 +1745,11 @@ describe.only("Tests for Upgradeability", () => {
             _flashLoanToken: zeroAddress, //Token to take flashlaon
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address, //Handler to swap
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             isDexRepayment: false,
-            _poolFees: [0, 0, 0],
+            _poolFees: [[0, 0, 0]],
             _swapHandler: swapHandler.address,
           }
         );
@@ -1813,11 +1819,11 @@ describe.only("Tests for Upgradeability", () => {
             _flashLoanToken: zeroAddress, //Token to take flashlaon
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address, //Handler to swap
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             isDexRepayment: false,
-            _poolFees: [0, 0, 0],
+            _poolFees: [[0, 0, 0]],
             _swapHandler: swapHandler.address,
           });
 

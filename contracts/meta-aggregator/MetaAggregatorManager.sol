@@ -6,23 +6,42 @@ import {IMetaAggregatorSwapContract} from "./interfaces/IMetaAggregatorSwapContr
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IMetaAggregatorManager} from "./interfaces/IMetaAggregatorManager.sol";
 import {TransferHelper} from "./libraries/TransferHelper.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+
 /**
  * @title MetaAggregatorManager
  * @dev This contract manages the swapping of tokens through a meta aggregator.
  */
-contract MetaAggregatorManager is ReentrancyGuard, IMetaAggregatorManager {
+contract MetaAggregatorManager is
+    ReentrancyGuard,
+    Ownable,
+    IMetaAggregatorManager
+{
     IMetaAggregatorSwapContract immutable MetaAggregatorSwap;
     address nativeToken = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     // Custom error definitions
     error CannotSwapETH();
     error InvalidMetaAggregatorAddress();
+    error TransferFailed();
+    error InvalidToken();
+    //events
+    event ERC20Transferred(
+        address indexed token,
+        address indexed to,
+        uint256 amount
+    );
+    event ERC20TransferredBatch(
+        address[] tokens,
+        address[] to,
+        uint256[] amounts
+    );
 
     /**
      * @dev Sets the address of the MetaAggregatorSwap contract.
      * @param _metaAggregatorSwap The address of the MetaAggregatorSwap contract.
      */
-    constructor(address _metaAggregatorSwap) {
+    constructor(address _metaAggregatorSwap) Ownable() {
         if (_metaAggregatorSwap == address(0)) {
             revert InvalidMetaAggregatorAddress();
         }
@@ -82,5 +101,49 @@ contract MetaAggregatorManager is ReentrancyGuard, IMetaAggregatorManager {
                 isDelegate
             )
         );
+    }
+
+    /**
+     * @dev Transfers ERC20 tokens to a specified address.This is only for emergency use. This contract is not made to hold any tokens.
+     * @param token The address of the ERC20 token to transfer.
+     * @param to The address to transfer the ERC20 tokens to.
+     * @param amount The amount of ERC20 tokens to transfer.
+     */
+    function transferERC20(
+        address token,
+        address to,
+        uint256 amount
+    ) external onlyOwner {
+        TransferHelper.safeTransfer(token, to, amount);
+        emit ERC20Transferred(token, to, amount);
+    }
+
+    /**
+     * @dev Transfers multiple ERC20 tokens to a specified address.This is only for emergency use. This contract is not made to hold any tokens.
+     * @param tokens The addresses of the ERC20 tokens to transfer.
+     * @param to The address to transfer the ERC20 tokens to.
+     * @param amounts The amounts of ERC20 tokens to transfer.
+     */
+    function transferERC20Batch(
+        address[] memory tokens,
+        address[] memory to,
+        uint256[] memory amounts
+    ) external onlyOwner {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            _transferERC20(tokens[i], to[i], amounts[i]);
+        }
+        emit ERC20TransferredBatch(tokens, to, amounts);
+    }
+
+    /**
+     * @dev Transfers ERC20 tokens to a specified address.
+     */
+    function _transferERC20(
+        address token,
+        address to,
+        uint256 amount
+    ) internal {
+        if (token == address(0)) revert InvalidToken();
+        TransferHelper.safeTransfer(token, to, amount);
     }
 }

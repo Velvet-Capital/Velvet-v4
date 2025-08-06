@@ -53,6 +53,8 @@ library ErrorLibrary {
   error ProtocolNotPaused();
   /// @notice Thrown when protocol is paused
   error ProtocolIsPaused();
+  /// @notice Thrown when repay is paused
+  error RepayIsPaused();
   /// @notice Thrown when token is not enabled
   error TokenNotEnabled();
   /// @notice Thrown when portfolio creation is paused
@@ -103,6 +105,8 @@ library ErrorLibrary {
   error SequencerIsDown();
   /// @notice Throws when sequencer threshold is not crossed
   error SequencerThresholdNotCrossed();
+  /// @notice Throws when sequencer timestamp is zero
+  error InvalidSequencerTimestamp();
   /// @notice Throws when depositAmount and depositToken length does not match
   error InvalidDepositInputLength();
   /// @notice Mint amount smaller than users indended buy amount
@@ -239,4 +243,8 @@ library ErrorLibrary {
   error InvalidLoanInitiator();
   // @notice Thrown when swapHandler is not correct
   error InvalidSwapHandler();
+  // @notice Thrown when position wrapper is not valid
+  error InvalidPositionWrapper();
+  // @notice Thrown when callback caller is not supported
+  error UnsupportedCallbackCaller();
 }

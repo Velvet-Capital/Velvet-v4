@@ -79,11 +79,9 @@ abstract contract AbstractBorrowManager is
       repayData._bufferUnit
     );
 
-    // Set flash loan flag to true to allow callback execution and prevent unauthorized callbacks
-    _isFlashLoanActive = true;
-
     // Iterate through all controllers to repay borrows for each
     uint256 controllersLength = controllers.length;
+    uint256 _counter = 0;
     for (uint256 j; j < controllersLength; j++) {
       address _controller = controllers[j];
 
@@ -107,9 +105,14 @@ abstract contract AbstractBorrowManager is
         address(this),
         _portfolioTokenAmount,
         _totalSupply,
+        _counter,
         borrowedTokens,
-        repayData
+        repayData    
       );
+      _counter++;
+
+      // Set flash loan flag to true to allow callback execution and prevent unauthorized callbacks
+      _isFlashLoanActive = true;
 
       // Perform the delegatecall to the asset handler
       // This allows the asset handler to execute the flash loan in the context of this contract

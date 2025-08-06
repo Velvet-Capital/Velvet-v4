@@ -273,9 +273,11 @@ export async function increaseLiquidity(
     _amount1Desired: swapResult1,
     _amount0Min: 0,
     _amount1Min: 0,
+    _swapDeployer: ethers.constants.AddressZero,
     _tokenIn: token0,
     _tokenOut: token1,
     _amountIn: 0,
+    _fee: 100,
   });
 
   const balanceT0After = await ERC20Upgradeable.attach(token0).balanceOf(
@@ -324,6 +326,23 @@ export async function decreaseLiquidity(
     user.address
   );
 
+  let positionManagerDustBalance = await ERC20Upgradeable.attach(
+    token0
+  ).balanceOf(positionManagerAddress);
+
+  let positionManagerDustBalance1 = await ERC20Upgradeable.attach(
+    token1
+  ).balanceOf(positionManagerAddress);
+
+  let swapData = await calculateWithdrawSwapAmounts(
+    positionManagerAddress,
+    positionWrapperAddress,
+    positionManagerDustBalance,
+    positionManagerDustBalance1
+  );
+
+  console.log("swapData", swapData);
+
   let balance = BigNumber.from(await positionWrapper.balanceOf(user.address));
 
   console.log("balance", balance);
@@ -334,9 +353,11 @@ export async function decreaseLiquidity(
       balance,
       0,
       0,
-      token0,
-      token1,
-      0
+      ethers.constants.AddressZero,
+      swapData.tokenIn,
+      swapData.tokenOut,
+      swapData.swapAmount,
+      100
     );
 
   let balanceT0After = await ERC20Upgradeable.attach(token0).balanceOf(
@@ -471,6 +492,106 @@ export async function calculateSwapAmountUpdateRange(
     tokenOut = token1;
   } else {
     swapAmount = Number(BigNumber.from(token1BalanceBefore)) - depositAmount1;
+    tokenIn = token1;
+    tokenOut = token0;
+  }
+
+  swapAmount = (swapAmount * 0.999).toFixed(0);
+
+  return { swapAmount, tokenIn, tokenOut };
+}
+
+export async function calculateWithdrawSwapAmounts(
+  positionManagerAddress: string,
+  position: string,
+  amount0: any,
+  amount1: any
+): Promise<any> {
+  const AmountCalculationsAlgebra = await ethers.getContractFactory(
+    "AmountCalculationsAlgebra"
+  );
+  const amountCalculationsAlgebra = await AmountCalculationsAlgebra.deploy();
+  await amountCalculationsAlgebra.deployed();
+
+  const PositionWrapper = await ethers.getContractFactory("PositionWrapper");
+  const positionWrapper = PositionWrapper.attach(position);
+
+  const SwapVerificationLibrary = await ethers.getContractFactory(
+    "SwapVerificationLibraryAlgebra"
+  );
+  const swapVerificationLibrary = await SwapVerificationLibrary.deploy();
+  await swapVerificationLibrary.deployed();
+
+  const PositionManager = await ethers.getContractFactory(
+    "PositionManagerAlgebra",
+    {
+      libraries: {
+        SwapVerificationLibraryAlgebra: swapVerificationLibrary.address,
+      },
+    }
+  );
+  const positionManager = PositionManager.attach(positionManagerAddress);
+
+  const token0 = await positionWrapper.token0();
+  const token1 = await positionWrapper.token1();
+  const tickLower = await positionWrapper.initialTickLower();
+  const tickUpper = await positionWrapper.initialTickUpper();
+  //const tokenId = await positionWrapper.tokenId();
+  /*
+
+        Steps:
+        - ratioForNewPriceRange - modify, only return both amounts
+        - pass amount total, amount0, amount1 to get ratio
+        - getTokenBalances before swap token0, token1
+        - sum of token0, token1 => total amount, must be in the same currency
+        - sum * ratio for each token
+        - calculate swap amount
+
+        */
+
+  // Get amounts for new price range (to calculate the ratio)
+  let amounts =
+    await amountCalculationsAlgebra.callStatic.getRatioAmountsForTicks(
+      position,
+      tickLower,
+      tickUpper
+    );
+
+  // Convert amount0, amount1 to USD (here we use stable coins for testing so we can skip)
+
+  // Get the ratios the tokens should be swapped to
+  let ratio0 =
+    Number(BigNumber.from(amounts.amount0)) /
+    Number(
+      BigNumber.from(amounts.amount0).add(BigNumber.from(amounts.amount1))
+    );
+  let ratio1 =
+    Number(BigNumber.from(amounts.amount1)) /
+    Number(
+      BigNumber.from(amounts.amount0).add(BigNumber.from(amounts.amount1))
+    );
+
+  // Get the token balances before the swap
+  const ERC20 = await ethers.getContractFactory("ERC20Upgradeable");
+
+  // If not stablecoin both balances need to be converted to USD first
+  let totalBalance = amount0.add(amount1);
+
+  // Calculate the amounts needed to reinvest
+  let depositAmount0 = Number(BigNumber.from(totalBalance)) * ratio0;
+  let depositAmount1 = Number(BigNumber.from(totalBalance)) * ratio1;
+
+  let swapAmount;
+  let tokenIn;
+  let tokenOut;
+
+  // Calculate the amount to swap
+  if (depositAmount0 < Number(BigNumber.from(amount0))) {
+    swapAmount = Number(BigNumber.from(amount0)) - depositAmount0;
+    tokenIn = token0;
+    tokenOut = token1;
+  } else {
+    swapAmount = Number(BigNumber.from(amount1)) - depositAmount1;
     tokenIn = token1;
     tokenOut = token0;
   }

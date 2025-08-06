@@ -22,6 +22,7 @@ import {TransferHelper} from "@uniswap/lib/contracts/libraries/TransferHelper.so
 
 import {ErrorLibrary} from "../library/ErrorLibrary.sol";
 import {Ownable} from "@openzeppelin/contracts-4.8.2/access/Ownable.sol";
+import {IERC20} from "@openzeppelin/contracts-4.8.2/token/ERC20/IERC20.sol";
 
 contract UniswapV2Handler is Initializable, Ownable {
   IUniswapV2Router02 internal uniSwapRouter;
@@ -49,7 +50,7 @@ contract UniswapV2Handler is Initializable, Ownable {
     address _to,
     bool isEnabled
   ) external returns (uint256 swapResult) {
-    TransferHelper.safeApprove(_t, address(uniSwapRouter), _swapAmount);
+    _safeApprove(_t, address(uniSwapRouter), _swapAmount);
     uint256 internalSlippage = isEnabled
       ? getSlippage(_swapAmount, _slippage, getPathForToken(_t))
       : 1;
@@ -70,7 +71,7 @@ contract UniswapV2Handler is Initializable, Ownable {
     address _to,
     bool isEnabled
   ) external returns (uint256 swapResult) {
-    TransferHelper.safeApprove(_tokenIn, address(uniSwapRouter), _swapAmount);
+    _safeApprove(_tokenIn, address(uniSwapRouter), _swapAmount);
     if (isEnabled) {
       swapResult = uniSwapRouter.swapExactTokensForTokens(
         _swapAmount,
@@ -172,5 +173,16 @@ contract UniswapV2Handler is Initializable, Ownable {
     address[] memory path
   ) internal view returns (uint256 minAmount) {
     minAmount = 1;
+  }
+
+  /**
+   * @notice Helper function to safely approve a token for a spender.
+   * @param token The address of the token to approve.
+   * @param spender The address of the spender.
+   * @param amount The amount to approve.
+   */
+  function _safeApprove(address token, address spender, uint256 amount) internal {
+    try IERC20(token).approve(spender, 0) {} catch {}
+    TransferHelper.safeApprove(token, spender, amount);
   }
 }

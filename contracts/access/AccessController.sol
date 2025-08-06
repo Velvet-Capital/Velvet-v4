@@ -87,6 +87,9 @@ contract AccessController is AccessControl, AccessRoles, IAccessController {
     address _oldAccount,
     address _newAccount
   ) external override onlyAdmin {
+    if (_newAccount == _oldAccount) {
+      revert ErrorLibrary.InvalidAddress();
+    }
     _grantRole(SUPER_ADMIN, _newAccount);
     revokeRole(SUPER_ADMIN, _oldAccount);
   }

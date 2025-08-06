@@ -91,8 +91,7 @@ contract DepositBatch is ReentrancyGuard {
       }
       if (balance == 0) revert ErrorLibrary.InvalidBalanceDiff();
 
-      TransferHelper.safeApprove(_token, target, 0);
-      TransferHelper.safeApprove(_token, target, balance);
+      _safeApprove(_token, target, balance);
 
       depositAmounts[i] = balance;
     }
@@ -111,6 +110,17 @@ contract DepositBatch is ReentrancyGuard {
         TransferHelper.safeTransfer(_token, user, portfoliodustReturn);
       }
     }
+  }
+
+  /**
+   * @notice Helper function to safely approve a token for a spender.
+   * @param token The address of the token to approve.
+   * @param spender The address of the spender.
+   * @param amount The amount to approve.
+   */
+  function _safeApprove(address token, address spender, uint256 amount) internal {
+    try IERC20(token).approve(spender, 0) {} catch {}
+    TransferHelper.safeApprove(token, spender, amount);
   }
 
   /**

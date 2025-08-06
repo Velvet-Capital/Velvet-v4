@@ -178,7 +178,7 @@ describe.only("Tests for Deposit", () => {
 
       const EnsoHandler = await ethers.getContractFactory("EnsoHandler");
       ensoHandler = await EnsoHandler.deploy(
-        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+        "0x7663fd40081dcCd47805c00e613B6beAc3B87F08"
       );
       await ensoHandler.deployed();
 
@@ -186,7 +186,7 @@ describe.only("Tests for Deposit", () => {
         "DepositBatchExternalPositions"
       );
       depositBatch = await DepositBatch.deploy(
-        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+        "0x7663fd40081dcCd47805c00e613B6beAc3B87F08"
       );
       await depositBatch.deployed();
 
@@ -200,7 +200,7 @@ describe.only("Tests for Deposit", () => {
         "WithdrawBatchExternalPositions"
       );
       withdrawBatch = await WithdrawBatch.deploy(
-        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+        "0x7663fd40081dcCd47805c00e613B6beAc3B87F08"
       );
       await withdrawBatch.deployed();
 
@@ -216,7 +216,9 @@ describe.only("Tests for Deposit", () => {
       const positionWrapperBaseAddress = await PositionWrapper.deploy();
       await positionWrapperBaseAddress.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManagerVenus");
+      const BorrowManager = await ethers.getContractFactory(
+        "BorrowManagerVenus"
+      );
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 
@@ -237,13 +239,6 @@ describe.only("Tests for Deposit", () => {
         iaddress.usdcAddress,
         iaddress.usdtAddress,
       ]);
-
-      await protocolConfig.enableProtocol(
-        thenaProtocolHash,
-        "0xa51adb08cbe6ae398046a23bec013979816b77ab",
-        "0x327dd3208f0bcf590a66110acb6e5e6941a4efa0",
-        positionWrapperBaseAddress.address
-      );
 
       const Rebalancing = await ethers.getContractFactory("Rebalancing");
       const rebalancingDefult = await Rebalancing.deploy();
@@ -277,7 +272,6 @@ describe.only("Tests for Deposit", () => {
       swapHandler.init(addresses.PancakeSwapRouterAddress);
       await protocolConfig.enableSwapHandler(swapHandler.address);
 
-
       await protocolConfig.setSupportedFactory(addresses.thena_factory);
 
       let whitelistedTokens = [
@@ -307,6 +301,13 @@ describe.only("Tests for Deposit", () => {
       );
       const positionManagerBaseAddress = await PositionManager.deploy();
       await positionManagerBaseAddress.deployed();
+
+      await protocolConfig.enableProtocol(
+        thenaProtocolHash,
+        "0xa51adb08cbe6ae398046a23bec013979816b77ab",
+        "0x327dd3208f0bcf590a66110acb6e5e6941a4efa0",
+        positionManagerBaseAddress.address
+      );
 
       const AmountCalculationsAlgebra = await ethers.getContractFactory(
         "AmountCalculationsAlgebra"
@@ -357,7 +358,7 @@ describe.only("Tests for Deposit", () => {
             _baseTokenRemovalVaultImplementation: tokenRemovalVault.address,
             _baseVelvetGnosisSafeModuleAddress: velvetSafeModule.address,
             _baseBorrowManager: borrowManager.address,
-            _basePositionManager: positionManagerBaseAddress.address,
+            _basePositionWrapper: positionWrapperBaseAddress.address,
             _baseExternalPositionStorage: externalPositionStorage.address,
             _gnosisSingleton: addresses.gnosisSingleton,
             _gnosisFallbackLibrary: addresses.gnosisFallbackLibrary,
@@ -371,11 +372,6 @@ describe.only("Tests for Deposit", () => {
 
       portfolioFactory = PortfolioFactory.attach(
         portfolioFactoryInstance.address
-      );
-
-      await portfolioFactory.setPositionManagerAddresses(
-        "0xa51adb08cbe6ae398046a23bec013979816b77ab",
-        "0x327dd3208f0bcf590a66110acb6e5e6941a4efa0"
       );
 
       await withdrawManager.initialize(
@@ -476,7 +472,7 @@ describe.only("Tests for Deposit", () => {
       await assetManagementConfig.enableUniSwapV3Manager(thenaProtocolHash);
 
       let positionManagerAddress =
-        await assetManagementConfig.positionManager();
+        await assetManagementConfig.lastDeployedPositionManager();
 
       positionManager = PositionManager.attach(positionManagerAddress);
 
@@ -595,10 +591,12 @@ describe.only("Tests for Deposit", () => {
             _amount0Min: [0, 0],
             _amount1Min: [0, 0],
             _isExternalPosition: isExternalPosition,
+            _swapDeployer: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenIn: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenOut: [ZERO_ADDRESS, ZERO_ADDRESS],
             _amountIn: ["0", "0"],
             _deployer: ZERO_ADDRESS,
+            _fee: [100, 100],
           },
           {
             value: "1000000000000000000",
@@ -679,10 +677,12 @@ describe.only("Tests for Deposit", () => {
             _amount0Min: [0, 0],
             _amount1Min: [0, 0],
             _isExternalPosition: isExternalPosition,
+            _swapDeployer: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenIn: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenOut: [ZERO_ADDRESS, ZERO_ADDRESS],
             _amountIn: ["0", "0"],
             _deployer: ZERO_ADDRESS,
+            _fee: [100, 100],
           }
         );
 
@@ -761,10 +761,12 @@ describe.only("Tests for Deposit", () => {
             _amount0Min: [0, 0],
             _amount1Min: [0, 0],
             _isExternalPosition: isExternalPosition,
+            _swapDeployer: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenIn: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenOut: [ZERO_ADDRESS, ZERO_ADDRESS],
             _amountIn: ["0", "0"],
             _deployer: ZERO_ADDRESS,
+            _fee: [100, 100],
           }
         );
 
@@ -793,7 +795,7 @@ describe.only("Tests for Deposit", () => {
           position2,
           iaddress.dogeAddress,
           iaddress.btcAddress,
-          buyToken,
+          await removedPosition.token0(),
         ];
 
         positionWrappers = [position2];
@@ -803,8 +805,9 @@ describe.only("Tests for Deposit", () => {
           await positionWrapper2.token1(), // position2 - token1
           iaddress.dogeAddress,
           iaddress.btcAddress,
-          iaddress.usdtAddress,
+          token0,
         ];
+
         positionWrapperIndex = [1];
         portfolioTokenIndex = [0, 1, 1, 2, 3, 4];
         isExternalPosition = [false, true, true, false, false, false];
@@ -818,6 +821,15 @@ describe.only("Tests for Deposit", () => {
         let sellTokenBalance = BigNumber.from(
           await ERC20.attach(sellToken).balanceOf(vault)
         ).toString();
+
+        console.log(
+          "token0 balance before",
+          await ERC20.attach(token0).balanceOf(vault)
+        );
+        console.log(
+          "token1 balance before",
+          await ERC20.attach(token1).balanceOf(vault)
+        );
 
         // get underlying amounts of position
         let percentage = await amountCalculationsAlgebra.getPercentage(
@@ -843,35 +855,27 @@ describe.only("Tests for Deposit", () => {
           );
         }
 
-        const postResponse0 = await createEnsoCallDataRoute(
-          ensoHandler.address,
-          ensoHandler.address,
-          token0,
-          buyToken,
-          swapAmounts[0][0]
-        );
-
-        const postResponse1 = await createEnsoCallDataRoute(
-          ensoHandler.address,
-          ensoHandler.address,
-          token1,
-          buyToken,
-          swapAmounts[0][1]
-        );
-
         let callDataEnso: any = [[]];
-        callDataEnso[0][0] = postResponse0.data.tx.data;
-        callDataEnso[0][1] = postResponse1.data.tx.data;
 
         const callDataDecreaseLiquidity: any = [];
         // Encode the function call
         let ABI = [
-          "function decreaseLiquidity(address _positionWrapper, uint256 _withdrawalAmount, uint256 _amount0Min, uint256 _amount1Min, address tokenIn, address tokenOut, uint256 amountIn)",
+          "function decreaseLiquidity(address _positionWrapper, uint256 _withdrawalAmount, uint256 _amount0Min, uint256 _amount1Min, address _swapDeployer, address tokenIn, address tokenOut, uint256 amountIn, uint24 _fee)",
         ];
         let abiEncode = new ethers.utils.Interface(ABI);
         callDataDecreaseLiquidity[0] = abiEncode.encodeFunctionData(
           "decreaseLiquidity",
-          [sellToken, sellTokenBalance, 0, 0, token0, token1, 0]
+          [
+            sellToken,
+            sellTokenBalance,
+            0,
+            0,
+            ZERO_ADDRESS,
+            token0,
+            token1,
+            0,
+            100,
+          ]
         );
 
         const encodedParameters = ethers.utils.defaultAbiCoder.encode(
@@ -881,9 +885,9 @@ describe.only("Tests for Deposit", () => {
             "bytes[][]", // callDataIncreaseLiquidity
             "address[][]", // increaseLiquidityTarget
             "address[]", // underlyingTokensDecreaseLiquidity
-            "address[]", // tokensIn
-            "address[]", // tokens
-            " uint256[]", // minExpectedOutputAmounts
+            "address[][]", // tokensIn
+            "address[][]", // tokensOut
+            " uint256[][]", // minExpectedOutputAmounts (out)
           ],
           [
             callDataEnso,
@@ -891,9 +895,9 @@ describe.only("Tests for Deposit", () => {
             [[]],
             [[]],
             [await removedPosition.token0(), await removedPosition.token1()],
-            [sellToken],
-            [buyToken],
-            [0],
+            [[sellToken]],
+            [[await removedPosition.token0(), await removedPosition.token1()]],
+            [[0, 0]],
           ]
         );
 
@@ -904,6 +908,15 @@ describe.only("Tests for Deposit", () => {
           _handler: ensoHandler.address,
           _callData: encodedParameters,
         });
+
+        console.log(
+          "token0 balance after",
+          await ERC20.attach(token0).balanceOf(vault)
+        );
+        console.log(
+          "token1 balance after",
+          await ERC20.attach(token1).balanceOf(vault)
+        );
       });
 
       it("Create a new position wrapper", async () => {
@@ -932,7 +945,7 @@ describe.only("Tests for Deposit", () => {
         // initialized tokens
 
         let tokens = await portfolio.getTokens();
-        let sellToken = iaddress.usdtAddress;
+        let sellToken = iaddress.ethAddress;
         let buyToken = position3;
 
         let addedPosition = positionWrapper3;
@@ -958,6 +971,7 @@ describe.only("Tests for Deposit", () => {
           await addedPosition.token0(), // position1 - token0
           await addedPosition.token1(), // position1 - token1
         ];
+
         positionWrapperIndex = [1, 4];
         portfolioTokenIndex = [0, 1, 1, 2, 3, 4, 4];
         isExternalPosition = [false, true, true, false, false, true, true];
@@ -1049,9 +1063,9 @@ describe.only("Tests for Deposit", () => {
             "bytes[][]", // callDataIncreaseLiquidity
             "address[][]", // increaseLiquidityTarget
             "address[]", // underlyingTokensDecreaseLiquidity
-            "address[]", // tokensIn
-            "address[]", // tokens
-            " uint256[]", // minExpectedOutputAmounts
+            "address[][]", // tokensIn
+            "address[][]", // tokensOut
+            " uint256[][]", // minExpectedOutputAmounts (out)
           ],
           [
             callDataEnso,
@@ -1059,9 +1073,9 @@ describe.only("Tests for Deposit", () => {
             callDataIncreaseLiquidity,
             [[token0, token1, positionManager.address]],
             [],
-            [sellToken],
-            [buyToken],
-            [0],
+            [[sellToken]],
+            [[buyToken]],
+            [[0]],
           ]
         );
 
@@ -1092,7 +1106,7 @@ describe.only("Tests for Deposit", () => {
         const tokens = await portfolio.getTokens();
 
         let withdrawalAmounts =
-          await portfolioCalculations.getWithdrawalAmounts(
+          await portfolioCalculations.callStatic.getWithdrawalAmounts(
             amountPortfolioToken,
             portfolio.address
           );
@@ -1173,20 +1187,22 @@ describe.only("Tests for Deposit", () => {
             _flashLoanToken: zeroAddress,
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address,
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             _swapHandler: swapHandler.address,
-            _poolFees: [0],
+            _poolFees: [[0]],
             isDexRepayment: false,
           },
           {
             _positionWrappers: positionWrappers,
             _amountsMin0: [0, 0],
             _amountsMin1: [0, 0],
+            _swapDeployer: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenIn: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenOut: [ZERO_ADDRESS, ZERO_ADDRESS],
             _amountIn: ["0", "0"],
+            _fee: [100, 100],
           }
         );
 
@@ -1218,7 +1234,7 @@ describe.only("Tests for Deposit", () => {
         const tokens = await portfolio.getTokens();
 
         let withdrawalAmounts =
-          await portfolioCalculations.getWithdrawalAmounts(
+          await portfolioCalculations.callStatic.getWithdrawalAmounts(
             amountPortfolioToken,
             portfolio.address
           );
@@ -1295,20 +1311,22 @@ describe.only("Tests for Deposit", () => {
             _flashLoanToken: zeroAddress,
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address,
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             _swapHandler: swapHandler.address,
-            _poolFees: [0],
+            _poolFees: [[0]],
             isDexRepayment: false,
           },
           {
             _positionWrappers: positionWrappers,
             _amountsMin0: [0, 0],
             _amountsMin1: [0, 0],
+            _swapDeployer: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenIn: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenOut: [ZERO_ADDRESS, ZERO_ADDRESS],
             _amountIn: ["0", "0"],
+            _fee: [100, 100],
           }
         );
 
@@ -1393,10 +1411,12 @@ describe.only("Tests for Deposit", () => {
             _amount0Min: [0, 0],
             _amount1Min: [0, 0],
             _isExternalPosition: isExternalPosition,
+            _swapDeployer: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenIn: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenOut: [ZERO_ADDRESS, ZERO_ADDRESS],
             _amountIn: ["0", "0"],
             _deployer: ZERO_ADDRESS,
+            _fee: [100, 100],
           }
         );
 
@@ -1488,10 +1508,12 @@ describe.only("Tests for Deposit", () => {
             _amount0Min: [0, 0],
             _amount1Min: [0, 0],
             _isExternalPosition: isExternalPosition,
+            _swapDeployer: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenIn: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenOut: [ZERO_ADDRESS, ZERO_ADDRESS],
             _amountIn: ["0", "0"],
             _deployer: ZERO_ADDRESS,
+            _fee: [100, 100],
           }
         );
 
@@ -1530,7 +1552,7 @@ describe.only("Tests for Deposit", () => {
         const tokens = await portfolio.getTokens();
 
         let withdrawalAmounts =
-          await portfolioCalculations.getWithdrawalAmounts(
+          await portfolioCalculations.callStatic.getWithdrawalAmounts(
             amountPortfolioToken,
             portfolio.address
           );
@@ -1607,20 +1629,22 @@ describe.only("Tests for Deposit", () => {
             _flashLoanToken: zeroAddress,
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address,
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             _swapHandler: swapHandler.address,
-            _poolFees: [0],
+            _poolFees: [[0]],
             isDexRepayment: false,
           },
           {
             _positionWrappers: positionWrappers,
             _amountsMin0: [0, 0],
             _amountsMin1: [0, 0],
+            _swapDeployer: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenIn: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenOut: [ZERO_ADDRESS, ZERO_ADDRESS],
             _amountIn: ["0", "0"],
+            _fee: [100, 100],
           }
         );
 

@@ -265,7 +265,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
             _baseTokenRemovalVaultImplementation: tokenRemovalVault.address,
             _baseVelvetGnosisSafeModuleAddress: velvetSafeModule.address,
             _baseBorrowManager: borrowManager.address,
-            _basePositionManager: positionManagerBaseAddress.address,
+            _basePositionWrapper: positionWrapperBaseAddress.address,
             _baseExternalPositionStorage: externalPositionStorage.address,
             _gnosisSingleton: addresses.gnosisSingleton,
             _gnosisFallbackLibrary: addresses.gnosisFallbackLibrary,
@@ -646,9 +646,9 @@ describe.only("Tests for Deposit + Withdrawal", () => {
             "bytes[][]", // callDataIncreaseLiquidity
             "address[][]", // increaseLiquidityTarget
             "address[]", // underlyingTokensDecreaseLiquidity
-            "address[]", // tokensIn
-            "address[]", // tokens
-            "uint256[]", // minExpectedOutputAmounts
+            "address[][]", // tokensIn
+            "address[][]", // tokens
+            "uint256[][]", // minExpectedOutputAmounts
           ],
           [
             [[zeroXQuote.data]],
@@ -656,9 +656,9 @@ describe.only("Tests for Deposit + Withdrawal", () => {
             [[]],
             [[]],
             [],
-            [sellToken],
-            [buyToken],
-            [0],
+            [[sellToken]],
+            [[buyToken]],
+            [[0]],
           ]
         );
 
@@ -700,7 +700,7 @@ describe.only("Tests for Deposit + Withdrawal", () => {
         let userBalanceBefore = [];
 
         let withdrawalAmounts =
-          await portfolioCalculations.getWithdrawalAmounts(
+          await portfolioCalculations.callStatic.getWithdrawalAmounts(
             amountPortfolioToken,
             portfolio.address
           );
@@ -758,11 +758,11 @@ describe.only("Tests for Deposit + Withdrawal", () => {
             _flashLoanToken: zeroAddress, //Token to take flashlaon
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address, //Handler to swap
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             _swapHandler: swapHandler.address,
-            _poolFees: [0],
+            _poolFees: [[0]],
             isDexRepayment: false,
           },
           responses

@@ -6,6 +6,8 @@ import { PositionManagerAlgebraBase, IProtocolConfig, IPriceOracle } from "../al
 import { INonfungiblePositionManager } from "./INonfungiblePositionManager.sol";
 import { ERC1967Proxy } from "@openzeppelin/contracts/proxy/ERC1967/ERC1967Proxy.sol";
 import { SwapVerificationLibraryAlgebraV2 } from "./SwapVerificationLibraryAlgebraV2.sol";
+import { FunctionParameters } from "../../FunctionParameters.sol";
+import { ISwapRouter } from "./ISwapRouter.sol";
 
 /**
  * @title PositionManagerAbstractAlgebra
@@ -83,24 +85,14 @@ abstract contract PositionManagerAbstractAlgebraV1_2 is
    * @dev This function removes all liquidity from an existing position, then re-establishes the position
    *      with new range and fee parameters. It is intended to adjust positions to more efficient or desirable
    *      price ranges based on market conditions or strategy changes.
-   * @param _positionWrapper The wrapper contract that encapsulates the Uniswap V3 position.
-   * @param _tickLower The new lower bound of the price range for the position.
-   * @param _tickUpper The new upper bound of the price range for the position.
+   * @param params The parameters for the update range operation.
    */
   function updateRange(
-    IPositionWrapper _positionWrapper,
-    address tokenIn,
-    address tokenOut,
-    address deployer,
-    uint256 amountIn,
-    uint256 _underlyingAmountOut0,
-    uint256 _underlyingAmountOut1,
-    int24 _tickLower,
-    int24 _tickUpper
+    FunctionParameters.ExternalPositionUpdateRangeParamsAlgebra memory params
   ) external notPaused onlyAssetManager {
-    uint256 tokenId = _positionWrapper.tokenId();
-    address token0 = _positionWrapper.token0();
-    address token1 = _positionWrapper.token1();
+    uint256 tokenId = params._positionWrapper.tokenId();
+    address token0 = params._positionWrapper.token0();
+    address token1 = params._positionWrapper.token1();
 
     // Retrieve existing liquidity to be removed.
     uint128 existingLiquidity = _getExistingLiquidity(tokenId);
@@ -109,43 +101,54 @@ abstract contract PositionManagerAbstractAlgebraV1_2 is
     _decreaseLiquidityAndCollect(
       existingLiquidity,
       tokenId,
-      _underlyingAmountOut0, // Minimal acceptable token amounts set to 1 as a formality; all liquidity is being removed.
-      _underlyingAmountOut1,
+      params._underlyingAmountOut0, // Minimal acceptable token amounts set to 1 as a formality; all liquidity is being removed.
+      params._underlyingAmountOut1,
       address(this)
     );
 
     _swapTokensForAmountUpdateRange(
       WrapperFunctionParameters.SwapParams({
-        _positionWrapper: _positionWrapper,
+        _positionWrapper: params._positionWrapper,
         _tokenId: tokenId,
-        _amountIn: amountIn,
+        _amountIn: params._amountIn,
+        _swapDeployer: params._swapDeployer,
         _token0: token0,
         _token1: token1,
-        _tokenIn: tokenIn,
-        _tokenOut: tokenOut,
-        _tickLower: _tickLower,
-        _tickUpper: _tickUpper
+        _tokenIn: params._tokenIn,
+        _tokenOut: params._tokenOut,
+        _tickLower: params._tickLower,
+        _tickUpper: params._tickUpper,
+        _fee: params._fee
       })
     );
 
     // Mint a new position with the adjusted range and fee, using the tokens just collected.
     (uint256 newTokenId, ) = _mintNewUniswapPosition(
-      _positionWrapper,
+      params._positionWrapper,
       WrapperFunctionParameters.PositionMintParamsAlgebra({
         _amount0Desired: IERC20Upgradeable(token0).balanceOf(address(this)),
         _amount1Desired: IERC20Upgradeable(token1).balanceOf(address(this)),
         _amount0Min: 0,
         _amount1Min: 0,
-        _tickLower: _tickLower,
-        _tickUpper: _tickUpper,
-        _deployer: deployer
+        _tickLower: params._tickLower,
+        _tickUpper: params._tickUpper,
+        _deployer: params._deployer
       })
     );
 
     // Update the wrapper with the new token ID to reflect the repositioned state.
-    _positionWrapper.updateTokenId(newTokenId);
+    params._positionWrapper.updateTokenId(
+      newTokenId,
+      0,
+      params._tickLower,
+      params._tickUpper
+    );
 
-    emit PriceRangeUpdated(address(_positionWrapper), _tickLower, _tickUpper);
+    emit PriceRangeUpdated(
+      address(params._positionWrapper),
+      params._tickLower,
+      params._tickUpper
+    );
   }
 
   /**
@@ -187,7 +190,7 @@ abstract contract PositionManagerAbstractAlgebraV1_2 is
 
     // Deploy and initialize the position wrapper.
     ERC1967Proxy positionWrapperProxy = new ERC1967Proxy(
-      protocolConfig.getPositionWrapperBaseImplementation(protocolId),
+      assetManagementConfig.basePositionWrapper(),
       abi.encodeWithSelector(
         IPositionWrapper.init.selector,
         address(this),
@@ -263,7 +266,13 @@ abstract contract PositionManagerAbstractAlgebraV1_2 is
     balance1After = IERC20Upgradeable(token1).balanceOf(address(this));
 
     // Return any excess tokens (dust) that weren't used in liquidity addition back to the sender.
-    _returnDust(_dustReceiver, token0, token1, balance0After, balance1After);
+    _returnDust(
+      _dustReceiver,
+      token0,
+      token1,
+      balance0After - balance0Before,
+      balance1After - balance1Before
+    );
 
     emit PositionInitializedAndDeposited(address(_positionWrapper));
   }
@@ -370,7 +379,7 @@ abstract contract PositionManagerAbstractAlgebraV1_2 is
     address _tokenIn,
     address _tokenOut,
     address _uniswapV3PositionManager
-  ) internal override {
+  ) internal {
     SwapVerificationLibraryAlgebraV2.verifySwap(
       _tokenIn,
       _tokenOut,
@@ -387,7 +396,7 @@ abstract contract PositionManagerAbstractAlgebraV1_2 is
     uint256 _balanceTokenInBeforeSwap,
     address _tokenIn,
     address _uniswapV3PositionManager
-  ) internal override returns (uint256 balance0, uint256 balance1) {
+  ) internal returns (uint256 balance0, uint256 balance1) {
     (balance0, balance1) = SwapVerificationLibraryAlgebraV2
       .verifyRatioAfterSwap(
         protocolConfig,
@@ -415,6 +424,66 @@ abstract contract PositionManagerAbstractAlgebraV1_2 is
   }
 
   /**
+   * @dev Executes a token swap via a router.
+   * @param _params Swap parameters including input and output tokens and amounts.
+   * @return balance0 New balance of token0 after swap.
+   * @return balance1 New balance of token1 after swap.
+   */
+  function _swapTokenToToken(
+    WrapperFunctionParameters.SwapParams memory _params
+  ) internal override returns (uint256 balance0, uint256 balance1) {
+    address tokenIn = _params._tokenIn;
+    address tokenOut = _params._tokenOut;
+
+    if (
+      tokenIn == tokenOut ||
+      !(tokenOut == _params._token0 || tokenOut == _params._token1) ||
+      !(tokenIn == _params._token0 || tokenIn == _params._token1)
+    ) {
+      revert ErrorLibrary.InvalidTokenAddress();
+    }
+
+    IERC20Upgradeable(tokenIn).approve(router, _params._amountIn);
+
+    uint256 balanceTokenInBeforeSwap = IERC20Upgradeable(tokenIn).balanceOf(
+      address(this)
+    );
+    uint256 balanceTokenOutBeforeSwap = IERC20Upgradeable(tokenOut).balanceOf(
+      address(this)
+    );
+
+    ISwapRouter.ExactInputSingleParams memory params = ISwapRouter
+      .ExactInputSingleParams({
+        tokenIn: tokenIn,
+        tokenOut: tokenOut,
+        deployer: _params._swapDeployer,
+        recipient: address(this),
+        deadline: block.timestamp,
+        amountIn: _params._amountIn,
+        amountOutMinimum: 0,
+        limitSqrtPrice: 0
+      });
+
+    ISwapRouter(router).exactInputSingle(params);
+
+    _verifySwap(
+      _params._amountIn,
+      balanceTokenInBeforeSwap,
+      balanceTokenOutBeforeSwap,
+      tokenIn,
+      tokenOut,
+      address(uniswapV3PositionManager)
+    );
+
+    (balance0, balance1) = _verifyRatioAfterSwap(
+      _params,
+      balanceTokenInBeforeSwap,
+      tokenIn,
+      address(uniswapV3PositionManager)
+    );
+  }
+
+  /**
    * @dev Handles swapping tokens to achieve a desired pool ratio.
    * @param _params Parameters including tokens and amounts for the swap.
    * @return balance0 Updated balance of token0.
@@ -425,18 +494,29 @@ abstract contract PositionManagerAbstractAlgebraV1_2 is
   ) internal override returns (uint256 balance0, uint256 balance1) {
     // Swap tokens to the token0 or token1 pool ratio
     if (_params._amountIn > 0) {
-      (balance0, balance1) = _swapTokenToToken(_params);
-    } else {
-      (uint128 tokensOwed0, uint128 tokensOwed1) = _getTokensOwed(
-        _params._tokenId
-      );
-      SwapVerificationLibraryAlgebraV2.verifyZeroSwapAmountForReinvestFees(
+      // check if the amount in is greater than the dust threshold
+      bool isDust = SwapVerificationLibraryAlgebraV2.checkSwapAmountIsDust(
         protocolConfig,
-        _params,
-        address(uniswapV3PositionManager),
-        tokensOwed0,
-        tokensOwed1
+        _params
       );
+
+      if (!isDust) {
+        (balance0, balance1) = _swapTokenToToken(_params);
+      } else {
+        (balance0, balance1) = SwapVerificationLibraryAlgebraV2
+          .verifyDustSwapAmount(
+            protocolConfig,
+            _params,
+            address(uniswapV3PositionManager)
+          );
+      }
+    } else {
+      (balance0, balance1) = SwapVerificationLibraryAlgebraV2
+        .verifyZeroSwapAmountForReinvestFees(
+          protocolConfig,
+          _params,
+          address(uniswapV3PositionManager)
+        );
     }
   }
 }

@@ -99,7 +99,8 @@ contract DepositBatchExternalPositions is ReentrancyGuard {
       positionWrapperLength != _params._tokenOut.length ||
       positionWrapperLength != _params._amountIn.length ||
       positionWrapperLength != _params._amount0Min.length ||
-      positionWrapperLength != _params._amount1Min.length
+      positionWrapperLength != _params._amount1Min.length ||
+      positionWrapperLength != _params._fee.length
     ) revert ErrorLibrary.InvalidLength();
 
     address[] memory tokens = IPortfolio(data._target).getTokens();
@@ -125,8 +126,7 @@ contract DepositBatchExternalPositions is ReentrancyGuard {
     for (uint256 i; i < tokenLength; i++) {
       address _token = tokens[i];
 
-      TransferHelper.safeApprove(_token, target, 0);
-      TransferHelper.safeApprove(_token, target, depositAmounts[i]);
+      _safeApprove(_token, target, depositAmounts[i]);
     }
 
     // Deposit tokens into Velvet Core
@@ -204,9 +204,6 @@ contract DepositBatchExternalPositions is ReentrancyGuard {
     address _assetManagementConfig
   ) internal returns (uint256[] memory) {
     // Increase Liquidity UniswapV3
-    IPositionManager positionManager = IPositionManager(
-      IAssetManagementConfig(_assetManagementConfig).positionManager()
-    );
 
     // Increase liquidity for external positions
     uint256 _positionWrappersLength = _params._positionWrappers.length;
@@ -226,7 +223,7 @@ contract DepositBatchExternalPositions is ReentrancyGuard {
         _params,
         _swapResults,
         i,
-        positionManager,
+        IPositionManager(positionWrapper.parentPositionManager()),
         positionWrapper
       );
 
@@ -260,23 +257,13 @@ contract DepositBatchExternalPositions is ReentrancyGuard {
     IPositionManager positionManager,
     IPositionWrapper positionWrapper
   ) internal {
-    // Approve position manager to increase liqudity
-    TransferHelper.safeApprove(
-      _params._swapTokens[_params._index0[i]],
-      address(positionManager),
-      0
-    );
-    TransferHelper.safeApprove(
+    _safeApprove(
       _params._swapTokens[_params._index0[i]],
       address(positionManager),
       _swapResults[_params._index0[i]]
     );
-    TransferHelper.safeApprove(
-      _params._swapTokens[_params._index1[i]],
-      address(positionManager),
-      0
-    );
-    TransferHelper.safeApprove(
+
+    _safeApprove(
       _params._swapTokens[_params._index1[i]],
       address(positionManager),
       _swapResults[_params._index1[i]]
@@ -305,12 +292,29 @@ contract DepositBatchExternalPositions is ReentrancyGuard {
           _amount1Desired: _swapResults[_params._index1[i]],
           _amount0Min: _params._amount0Min[i],
           _amount1Min: _params._amount1Min[i],
+          _swapDeployer: _params._swapDeployer[i],
           _tokenIn: _params._tokenIn[i],
           _tokenOut: _params._tokenOut[i],
-          _amountIn: _params._amountIn[i]
+          _amountIn: _params._amountIn[i],
+          _fee: _params._fee[i]
         })
       );
     }
+  }
+
+  /**
+   * @notice Helper function to safely approve a token for a spender.
+   * @param token The address of the token to approve.
+   * @param spender The address of the spender.
+   * @param amount The amount to approve.
+   */
+  function _safeApprove(
+    address token,
+    address spender,
+    uint256 amount
+  ) internal {
+    try IERC20(token).approve(spender, 0) {} catch {}
+    TransferHelper.safeApprove(token, spender, amount);
   }
 
   /**

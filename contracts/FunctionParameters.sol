@@ -2,6 +2,7 @@
 pragma solidity 0.8.17;
 
 import { IPositionManager } from "./wrappers/abstract/IPositionManager.sol";
+import { IPositionWrapper } from "./wrappers/abstract/IPositionWrapper.sol";
 
 /**
  * @title FunctionParameters
@@ -36,7 +37,7 @@ library FunctionParameters {
     address _feeModuleImplementationAddress;
     address _baseTokenRemovalVaultImplementation;
     address _baseVelvetGnosisSafeModuleAddress;
-    address _basePositionManager;
+    address _basePositionWrapper;
     address _baseExternalPositionStorage;
     address _baseBorrowManager;
     address _gnosisSingleton;
@@ -136,7 +137,7 @@ library FunctionParameters {
     address _accessController;
     address _feeModule;
     address _assetManagerTreasury;
-    address _basePositionManager;
+    address _basePositionWrapper;
     address _baseExternalPositionStorage;
     address[] _whitelistedTokens;
     bool _publicPortfolio;
@@ -173,7 +174,7 @@ library FunctionParameters {
    * @param _debtToken The addresses of the tokens representing the debt to be repaid.
    * @param _protocolToken The addresses of the protocol-specific tokens, such as lending tokens (e.g., vTokens for Venus protocol).
    * @param _solverHandler The address of the contract handling the execution of swaps and other logic.
-   * @param _swapHandler The address of the contract handling encoded data 
+   * @param _swapHandler The address of the contract handling encoded data
    * @param _bufferUnit Buffer unit for collateral amount
    * @param _flashLoanAmount The amounts of the flash loan to be taken for each corresponding `_flashLoanToken`.
    * @param _debtRepayAmount The amounts of debt to be repaid for each corresponding `_debtToken`.
@@ -226,10 +227,10 @@ library FunctionParameters {
     address _solverHandler;
     address _swapHandler;
     uint256 _bufferUnit;
-    uint256[] _flashLoanAmount;
-    uint256[] _poolFees;
-    bytes[] firstSwapData;
-    bytes[] secondSwapData;
+    uint256[][] _flashLoanAmount;
+    uint256[][] _poolFees;
+    bytes[][] firstSwapData;
+    bytes[][] secondSwapData;
     bool isDexRepayment;
   }
 
@@ -377,9 +378,11 @@ library FunctionParameters {
     uint256[] _amount0Min;
     uint256[] _amount1Min;
     bool[] _isExternalPosition;
+    address[] _swapDeployer;
     address[] _tokenIn;
     address[] _tokenOut;
     uint256[] _amountIn;
+    uint24[] _fee;
   }
 
   /**
@@ -398,9 +401,11 @@ library FunctionParameters {
     address[] _positionWrappers;
     uint256[] _amountsMin0;
     uint256[] _amountsMin1;
+    address[] _swapDeployer;
     address[] _tokenIn;
     address[] _tokenOut;
     uint256[] _amountIn;
+    uint24[] _fee;
   }
 
   /**
@@ -413,6 +418,35 @@ library FunctionParameters {
   struct EnsoRebalanceParams {
     IPositionManager _positionManager;
     address _to;
+    address _assetManagementConfig;
     bytes _calldata;
+  }
+
+  struct ExternalPositionUpdateRangeParamsAlgebra {
+    IPositionWrapper _positionWrapper;
+    address _swapDeployer;
+    address _tokenIn;
+    address _tokenOut;
+    address _deployer;
+    uint256 _amountIn;
+    uint256 _underlyingAmountOut0;
+    uint256 _underlyingAmountOut1;
+    int24 _tickLower;
+    int24 _tickUpper;
+    uint24 _fee;
+  }
+
+  struct ExternalPositionUpdateRangeParamsUniswap {
+    IPositionWrapper _positionWrapper;
+    address _tokenIn;
+    address _tokenOut;
+    address _deployer;
+    uint256 _amountIn;
+    uint256 _underlyingAmountOut0;
+    uint256 _underlyingAmountOut1;
+    int24 _tickLower;
+    int24 _tickUpper;
+    uint24 _fee;
+    uint24 _swapFee;
   }
 }

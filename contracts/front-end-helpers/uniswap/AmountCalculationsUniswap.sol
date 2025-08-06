@@ -63,9 +63,7 @@ contract AmountCalculationsUniswap {
       )
     );
 
-    int24 tick = pool.slot0().tick;
-
-    uint160 sqrtRatioX96 = TickMath.getSqrtRatioAtTick(tick);
+    uint160 sqrtRatioX96 = pool.slot0().sqrtPriceX96;
 
     uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(_tickLower);
 

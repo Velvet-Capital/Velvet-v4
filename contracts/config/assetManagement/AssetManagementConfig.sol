@@ -62,7 +62,7 @@ contract AssetManagementConfig is
     __TokenWhitelistManagement_init(
       initData._whitelistedTokens,
       address(accessController),
-      initData._basePositionManager,
+      initData._basePositionWrapper,
       initData._baseExternalPositionStorage,
       initData._whitelistTokens,
       initData._witelistedProtocolIds,

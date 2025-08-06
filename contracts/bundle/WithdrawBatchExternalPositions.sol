@@ -11,6 +11,7 @@ import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuar
 import { MathUtils } from "../core/calculations/MathUtils.sol";
 
 import { IPositionManager } from "../wrappers/abstract/IPositionManager.sol";
+import { IPositionWrapper } from "../wrappers/abstract/IPositionWrapper.sol";
 import { IAssetManagementConfig } from "../config/assetManagement/IAssetManagementConfig.sol";
 
 import { FunctionParameters } from "../FunctionParameters.sol";
@@ -77,6 +78,8 @@ contract WithdrawBatchExternalPositions is ReentrancyGuard {
         //Balance transferred to user directly
         balanceOfSameToken = _getTokenBalance(_token, address(this));
         TransferHelper.safeTransfer(_token, user, balanceOfSameToken);
+        // Reset the baseline so that any new tokens are correctly forwarded later
+        withdrawTokenBalanceBefore = 0;
       } else {
         (bool success, ) = SWAP_TARGET.delegatecall(_callData[i]);
         if (!success) revert ErrorLibrary.WithdrawBatchCallFailed();
@@ -135,23 +138,25 @@ contract WithdrawBatchExternalPositions is ReentrancyGuard {
     address _target,
     FunctionParameters.ExternalPositionWithdrawParams memory _params
   ) internal {
-    IPositionManager positionManager = IPositionManager(
-      IAssetManagementConfig(IPortfolio(_target).assetManagementConfig())
-        .positionManager()
-    );
-
     uint256 positionWrapperLength = _params._positionWrappers.length;
     for (uint256 i = 0; i < positionWrapperLength; i++) {
       address _positionWrapper = _params._positionWrappers[i];
       uint256 balance = IERC20(_positionWrapper).balanceOf(address(this));
+
+      IPositionManager positionManager = IPositionManager(
+        IPositionWrapper(_positionWrapper).parentPositionManager()
+      );
+
       positionManager.decreaseLiquidity(
         _positionWrapper,
         MathUtils.safe128(balance),
         _params._amountsMin0[i],
         _params._amountsMin1[i],
+        _params._swapDeployer[i],
         _params._tokenIn[i],
         _params._tokenOut[i],
-        _params._amountIn[i]
+        _params._amountIn[i],
+        _params._fee[i]
       );
     }
   }

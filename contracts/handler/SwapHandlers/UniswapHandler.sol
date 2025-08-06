@@ -2,10 +2,15 @@
 pragma solidity 0.8.17;
 
 import { ISwapHandler } from "../../core/interfaces/ISwapHandler.sol";
-import { ISwapRouter } from "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import { ISwapRouter02 } from "../../wrappers/uniswapV3/ISwapRouter02.sol";
+import "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 contract UniswapHandler is ISwapHandler {
-  address immutable ROUTER_ADDRESS = 0xE592427A0AEce92De3Edee1F18E0157C05861564;
+  address public immutable ROUTER_ADDRESS;
+
+  constructor(address _routerAddress) {
+    ROUTER_ADDRESS = _routerAddress;
+  }
 
   function swapExactTokensForTokens(
     address tokenIn,
@@ -17,19 +22,19 @@ contract UniswapHandler is ISwapHandler {
   ) public view returns (bytes memory data) {
     bytes memory path = abi.encodePacked(
       tokenIn, // Address of the input token
-      uint24(fee), // Pool fee (0.3%)
+      SafeCast.toUint24(fee), // Pool fee (0.3%)
       tokenOut // Address of the output token
     );
 
-    ISwapRouter.ExactInputParams memory params = ISwapRouter.ExactInputParams({
-      path: path,
-      recipient: to,
-      deadline: block.timestamp + 15,
-      amountIn: amountIn,
-      amountOutMinimum: amountOut
-    });
+    ISwapRouter02.ExactInputParams memory params = ISwapRouter02
+      .ExactInputParams({
+        path: path,
+        recipient: to,
+        amountIn: amountIn,
+        amountOutMinimum: amountOut
+      });
 
-    data = abi.encodeCall(ISwapRouter.exactInput, params);
+    data = abi.encodeCall(ISwapRouter02.exactInput, params);
   }
 
   function swapTokensForExactTokens(
@@ -42,20 +47,19 @@ contract UniswapHandler is ISwapHandler {
   ) public view returns (bytes memory data) {
     bytes memory path = abi.encodePacked(
       tokenIn, // Address of the input token
-      fee, // Pool fee (0.3%)
+      SafeCast.toUint24(fee), // Pool fee (0.3%)
       tokenOut // Address of the output token
     );
 
-    ISwapRouter.ExactOutputParams memory params = ISwapRouter
+    ISwapRouter02.ExactOutputParams memory params = ISwapRouter02
       .ExactOutputParams({
         path: path,
         recipient: to,
-        deadline: block.timestamp + 15,
         amountOut: amountOut,
         amountInMaximum: amountIn
       });
 
-    data = abi.encodeCall(ISwapRouter.exactOutput, params);
+    data = abi.encodeCall(ISwapRouter02.exactOutput, params);
   }
 
   function getRouterAddress() public view returns (address) {

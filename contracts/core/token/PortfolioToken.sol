@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import {ERC20Upgradeable} from "@openzeppelin/contracts-upgradeable-4.9.6/token/ERC20/ERC20Upgradeable.sol";
-import {AccessModifiers} from "../access/AccessModifiers.sol";
-import {CooldownManager, ErrorLibrary} from "../cooldown/CooldownManager.sol";
-import {Dependencies} from "../config/Dependencies.sol";
-import {UserManagement} from "../user/UserManagement.sol";
-import {IAssetManagementConfig} from "../../config/assetManagement/IAssetManagementConfig.sol";
+import { ERC20Upgradeable } from "@openzeppelin/contracts-upgradeable-4.9.6/token/ERC20/ERC20Upgradeable.sol";
+import { AccessModifiers } from "../access/AccessModifiers.sol";
+import { CooldownManager, ErrorLibrary } from "../cooldown/CooldownManager.sol";
+import { Dependencies } from "../config/Dependencies.sol";
+import { UserManagement } from "../user/UserManagement.sol";
+import { IAssetManagementConfig } from "../../config/assetManagement/IAssetManagementConfig.sol";
 
 /**
  * @title PortfolioToken
@@ -21,6 +21,10 @@ abstract contract PortfolioToken is
   Dependencies,
   UserManagement
 {
+  constructor() {
+    _disableInitializers();
+  }
+
   // Initializes the contract with a name and symbol for the ERC20 token.
   function __PortfolioToken_init(
     string calldata _name,

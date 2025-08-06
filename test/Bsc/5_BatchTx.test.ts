@@ -128,13 +128,13 @@ describe.only("Tests for Deposit", () => {
 
       const EnsoHandler = await ethers.getContractFactory("EnsoHandler");
       ensoHandler = await EnsoHandler.deploy(
-        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+        "0x7663fd40081dcCd47805c00e613B6beAc3B87F08"
       );
       await ensoHandler.deployed();
 
       const DepositBatch = await ethers.getContractFactory("DepositBatch");
       depositBatch = await DepositBatch.deploy(
-        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+        "0x7663fd40081dcCd47805c00e613B6beAc3B87F08"
       );
       await depositBatch.deployed();
 
@@ -144,7 +144,7 @@ describe.only("Tests for Deposit", () => {
 
       const WithdrawBatch = await ethers.getContractFactory("WithdrawBatch");
       withdrawBatch = await WithdrawBatch.deploy(
-        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+        "0x7663fd40081dcCd47805c00e613B6beAc3B87F08"
       );
       await withdrawBatch.deployed();
 
@@ -181,7 +181,9 @@ describe.only("Tests for Deposit", () => {
       const assetManagementConfig = await AssetManagementConfig.deploy();
       await assetManagementConfig.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManagerVenus");
+      const BorrowManager = await ethers.getContractFactory(
+        "BorrowManagerVenus"
+      );
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 
@@ -288,7 +290,7 @@ describe.only("Tests for Deposit", () => {
             _baseTokenRemovalVaultImplementation: tokenRemovalVault.address,
             _baseVelvetGnosisSafeModuleAddress: velvetSafeModule.address,
             _baseBorrowManager: borrowManager.address,
-            _basePositionManager: positionManagerBaseAddress.address,
+            _basePositionWrapper: positionWrapperBaseAddress.address,
             _baseExternalPositionStorage: externalPositionStorage.address,
             _gnosisSingleton: addresses.gnosisSingleton,
             _gnosisFallbackLibrary: addresses.gnosisFallbackLibrary,
@@ -574,7 +576,7 @@ describe.only("Tests for Deposit", () => {
         let userBalanceBefore = [];
 
         let withdrawalAmounts =
-          await portfolioCalculations.getWithdrawalAmounts(
+          await portfolioCalculations.callStatic.getWithdrawalAmounts(
             amountPortfolioToken.toString(),
             portfolio.address
           );
@@ -615,10 +617,10 @@ describe.only("Tests for Deposit", () => {
               _flashLoanToken: zeroAddress, //Token to take flashlaon
               _bufferUnit: "0",
               _solverHandler: ensoHandler.address, //Handler to swap
-              _flashLoanAmount: [0],
-              firstSwapData: ["0x"],
-              secondSwapData: ["0x"],
-              _poolFees: [0],
+              _flashLoanAmount: [[0]],
+              firstSwapData: [["0x"]],
+              secondSwapData: [["0x"]],
+              _poolFees: [[0]],
               _swapHandler: swapHandler.address,
               isDexRepayment: false,
             },
@@ -643,7 +645,7 @@ describe.only("Tests for Deposit", () => {
         let userBalanceBefore = [];
 
         let withdrawalAmounts =
-          await portfolioCalculations.getWithdrawalAmounts(
+          await portfolioCalculations.callStatic.getWithdrawalAmounts(
             amountPortfolioToken.toString(),
             portfolio.address
           );
@@ -684,11 +686,11 @@ describe.only("Tests for Deposit", () => {
               _flashLoanToken: zeroAddress, //Token to take flashlaon
               _bufferUnit: "0",
               _solverHandler: ensoHandler.address, //Handler to swap
-              _flashLoanAmount: [0],
-              firstSwapData: ["0x"],
-              secondSwapData: ["0x"],
+              _flashLoanAmount: [[0]],
+              firstSwapData: [["0x"]],
+              secondSwapData: [["0x"]],
               _swapHandler: swapHandler.address,
-              _poolFees: [0],
+              _poolFees: [[0]],
               isDexRepayment: false,
             },
             responses
@@ -716,11 +718,11 @@ describe.only("Tests for Deposit", () => {
               _flashLoanToken: zeroAddress, //Token to take flashlaon
               _bufferUnit: "0",
               _solverHandler: ensoHandler.address, //Handler to swap
-              _flashLoanAmount: [0],
-              firstSwapData: ["0x"],
-              secondSwapData: ["0x"],
+              _flashLoanAmount: [[0]],
+              firstSwapData: [["0x"]],
+              secondSwapData: [["0x"]],
               _swapHandler: swapHandler.address,
-              _poolFees: [0],
+              _poolFees: [[0]],
               isDexRepayment: false,
             },
             ["0x"]
@@ -749,7 +751,7 @@ describe.only("Tests for Deposit", () => {
         let userBalanceBefore = [];
 
         let withdrawalAmounts =
-          await portfolioCalculations.getWithdrawalAmounts(
+          await portfolioCalculations.callStatic.getWithdrawalAmounts(
             amountPortfolioToken,
             portfolio.address
           );
@@ -789,11 +791,11 @@ describe.only("Tests for Deposit", () => {
             _flashLoanToken: zeroAddress, //Token to take flashlaon
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address, //Handler to swap
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             _swapHandler: swapHandler.address,
-            _poolFees: [0],
+            _poolFees: [[0]],
             isDexRepayment: false,
           },
           responses
@@ -835,7 +837,7 @@ describe.only("Tests for Deposit", () => {
         const tokens = await portfolio.getTokens();
 
         let withdrawalAmounts =
-          await portfolioCalculations.getWithdrawalAmounts(
+          await portfolioCalculations.callStatic.getWithdrawalAmounts(
             amountPortfolioToken,
             portfolio.address
           );
@@ -872,11 +874,11 @@ describe.only("Tests for Deposit", () => {
             _flashLoanToken: zeroAddress, //Token to take flashlaon
             _bufferUnit: "0",
             _solverHandler: ensoHandler.address, //Handler to swap
-            _flashLoanAmount: [0],
-            firstSwapData: ["0x"],
-            secondSwapData: ["0x"],
+            _flashLoanAmount: [[0]],
+            firstSwapData: [["0x"]],
+            secondSwapData: [["0x"]],
             _swapHandler: swapHandler.address,
-            _poolFees: [0],
+            _poolFees: [[0]],
             isDexRepayment: false,
           },
           responses

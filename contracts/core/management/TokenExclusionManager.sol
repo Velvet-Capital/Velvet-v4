@@ -182,6 +182,9 @@ contract TokenExclusionManager is
    * - `id` must be less than the current snapshot ID.
    */
   function claimTokenAtId(address user, uint256 id) external nonReentrant {
+    if (protocolConfig.isProtocolEmergencyPaused())
+      revert ErrorLibrary.ProtocolIsPaused();
+
     if (user == address(0)) revert ErrorLibrary.InvalidAddress();
     // Retrieve the current snapshot ID for processing
     uint256 _currentId = _currentSnapshotId;

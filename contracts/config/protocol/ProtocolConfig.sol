@@ -99,4 +99,14 @@ contract ProtocolConfig is
     }
     emit UpgradePositionWrapper(_newImpl);
   }
+
+  /**
+   * @dev Updates the price oracle contract address.
+   * @param _newOracle Address of the new price oracle contract.
+   */
+  function updatePriceOracle(address _newOracle) external onlyProtocolOwner {
+    _updatePriceOracleOracleManagement(_newOracle);
+    _updatePriceOracleTokenManagement(_newOracle);
+    emit OracleUpdated(address(oracle), _newOracle);
+  }
 }

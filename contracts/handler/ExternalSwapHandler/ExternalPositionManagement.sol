@@ -63,6 +63,32 @@ contract ExternalPositionManagement {
   }
 
   /**
+   * @notice Transfers multiple tokens to the vault and verifies the amount transferred meets minimum expectations
+   * @dev This function calculates the swap return for each token, verifies it against the minimum expected amount,
+   *      and transfers the tokens to the vault
+   * @param _tokens An array of token addresses to transfer
+   * @param _vault The address of the vault to receive the tokens
+   * @param _buyTokenBalanceBefore The balance of the token before the swap
+   * @param _minAmountOut The minimum amount of tokens expected from the swap
+   */
+  function _transferMultipleTokensAndVerify(
+    address[] memory _tokens,
+    address _vault,
+    uint256[] memory _buyTokenBalanceBefore,
+    uint256[] memory _minAmountOut
+  ) internal {
+    uint256 tokensLength = _tokens.length;
+    for (uint256 i; i < tokensLength; i++) {
+      _transferTokensAndVerify(
+        _tokens[i],
+        _vault,
+        _buyTokenBalanceBefore[i],
+        _minAmountOut[i]
+      );
+    }
+  }
+
+  /**
    * @notice Returns any remaining dust tokens to the vault
    * @dev This function iterates through the provided token addresses, checks for any remaining balance,
    *      and transfers it to the vault if present

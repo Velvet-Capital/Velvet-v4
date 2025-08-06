@@ -67,6 +67,12 @@ interface IProtocolConfig {
   function isProtocolPaused() external view returns (bool);
 
   /**
+   * @notice Returns whether the repay is currently paused.
+   * @return True if the repay is paused, false otherwise.
+   */
+  function isRepayPaused() external view returns (bool);
+
+  /**
    * @notice Returns whether the protocol is currently in an emergency paused state.
    * @return True if the protocol is in an emergency paused state, false otherwise.
    */
@@ -89,6 +95,12 @@ interface IProtocolConfig {
    * @param _paused The new pause state.
    */
   function setProtocolPause(bool _paused) external;
+
+  /**
+   * @notice Sets the repay pause state of the protocol.
+   * @param _paused The new repay pause state.
+   */
+  function setRepayPause(bool _paused) external;
 
   /**
    * @notice Sets the emergency pause state of the protocol.
@@ -267,13 +279,13 @@ interface IProtocolConfig {
    * @param protocolId The identifier for the protocol (e.g., keccak256("UNISWAP_V3"))
    * @param nftManager The NFT manager contract address for the protocol
    * @param swapRouter The swap router contract address for the protocol
-   * @param positionWrapperBase The position wrapper base implementation address
+   * @param positionManagerBase The position wrapper base implementation address
    */
   function enableProtocol(
     bytes32 protocolId,
     address nftManager,
     address swapRouter,
-    address positionWrapperBase
+    address positionManagerBase
   ) external;
 
   /**
@@ -293,8 +305,18 @@ interface IProtocolConfig {
     bytes32 protocolId
   ) external view returns (address nftManager, address swapRouter);
 
-  function getPositionWrapperBaseImplementation(
+  function getPositionManagerBaseImplementation(
     bytes32 protocolId
   ) external view returns (address);
-  function MAX_BORROW_TOKEN_LIMIT() external pure returns(uint256);
+  function MAX_BORROW_TOKEN_LIMIT() external pure returns (uint256);
+
+  function isSupportedCallbackCaller(
+    address _callbackCaller
+  ) external view returns (bool);
+
+  function addSupportedCallbackCaller(address _callbackCaller) external;
+
+  function removeSupportedCallbackCaller(address _callbackCaller) external;
+
+  function swapAmountDustThreshold() external view returns (uint256);
 }

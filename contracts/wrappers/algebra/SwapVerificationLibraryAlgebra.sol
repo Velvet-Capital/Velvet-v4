@@ -15,16 +15,13 @@ import { IERC20Upgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC
 import { INonfungiblePositionManager } from "./INonfungiblePositionManager.sol";
 
 import { IProtocolConfig } from "../../config/protocol/IProtocolConfig.sol";
-
+import { IERC20MetadataUpgradeable } from "@openzeppelin/contracts-upgradeable/token/ERC20/extensions/IERC20MetadataUpgradeable.sol";
 /**
  * @title SwapVerificationLibrary
  * @notice Library for verifying swap operations using a price oracle
  */
 library SwapVerificationLibraryAlgebra {
   uint256 private constant TOTAL_WEIGHT = 10_000;
-
-  /// @notice Minimum amount of fees in smallest token unit that must be collected before they can be reinvested.
-  uint256 internal constant MIN_REINVESTMENT_AMOUNT = 1000000;
 
   /**
    * @dev Verifies the swap by comparing the sell and buy amounts using the price oracle.
@@ -184,9 +181,15 @@ library SwapVerificationLibraryAlgebra {
     balance0 = IERC20Upgradeable(_token0).balanceOf(address(this));
     balance1 = IERC20Upgradeable(_token1).balanceOf(address(this));
 
-    ratioAfterSwap = balance0 < 1_000_000 || balance1 < 1_000_000
+    uint256 normalizedBalance0 = balance0 *
+      (10 ** (18 - IERC20MetadataUpgradeable(_token0).decimals()));
+    uint256 normalizedBalance1 = balance1 *
+      (10 ** (18 - IERC20MetadataUpgradeable(_token1).decimals()));
+
+    ratioAfterSwap = normalizedBalance0 < 1_000_000 ||
+      normalizedBalance1 < 1_000_000
       ? 0
-      : (balance0 * 1e18) / balance1;
+      : (normalizedBalance0 * 1e18) / normalizedBalance1;
 
     (poolRatio, tokenZeroBalance) = LiquidityAmountsCalculations
       .getRatioForTicks(
@@ -249,8 +252,8 @@ library SwapVerificationLibraryAlgebra {
       .allowedRatioDeviationBps();
     // Calculate the maximum allowed balance after swap based on the deviation
     // This ensures that most of the tokenIn has been sold, leaving only a small dust value
-    uint256 dustAllowance = (_balanceBeforeSwap *
-      (TOTAL_WEIGHT - allowedRatioDeviationBps)) / TOTAL_WEIGHT;
+    uint256 dustAllowance = (_balanceBeforeSwap * allowedRatioDeviationBps) /
+      TOTAL_WEIGHT;
 
     if (_balanceAfterSwap > dustAllowance) {
       revert ErrorLibrary.InvalidSwapAmount();
@@ -262,23 +265,86 @@ library SwapVerificationLibraryAlgebra {
    * This function is specifically used to ensure that any fees due for reinvestment don't exceed
    * certain thresholds before proceeding with a ratio verification step.
    * @param _params Swap parameters encapsulating position and token details.
-   * @param _tokensOwed0 Tokens owed of type token0, typically fees that are ready for reinvestment.
-   * @param _tokensOwed1 Tokens owed of type token1, similarly fees that might be reinvested.
    * @notice Only proceeds with the verification if either of the owed token amounts exceeds
    * the minimum reinvestment threshold.
    */
   function verifyZeroSwapAmountForReinvestFees(
     IProtocolConfig protocolConfig,
     WrapperFunctionParameters.SwapParams memory _params,
-    address _nftManager,
-    uint128 _tokensOwed0,
-    uint128 _tokensOwed1
-  ) external {
+    address _nftManager
+  ) external returns (uint256 balance0, uint256 balance1) {
+    address oracle = protocolConfig.oracle();
+    uint256 swapAmountDustThreshold = protocolConfig.swapAmountDustThreshold();
+    balance0 = IERC20Upgradeable(_params._token0).balanceOf(address(this));
+    balance1 = IERC20Upgradeable(_params._token1).balanceOf(address(this));
+
     if (
-      _tokensOwed0 > MIN_REINVESTMENT_AMOUNT ||
-      _tokensOwed1 > MIN_REINVESTMENT_AMOUNT
+      (balance0 > 0 &&
+        IPriceOracle(oracle).convertToUSD18Decimals(_params._token0, balance0) >
+        swapAmountDustThreshold) ||
+      (balance1 > 0 &&
+        IPriceOracle(oracle).convertToUSD18Decimals(_params._token1, balance1) >
+        swapAmountDustThreshold)
     ) {
       verifyZeroSwapAmount(protocolConfig, _params, _nftManager);
     }
+
+    return (balance0, balance1);
+  }
+
+  /**
+   * @dev Checks if the swap amount is dust.
+   * @param _params Swap parameters encapsulating position and token details.
+   * @return True if the swap amount is dust, false otherwise.
+   */
+  function checkSwapAmountIsDust(
+    IProtocolConfig protocolConfig,
+    WrapperFunctionParameters.SwapParams memory _params
+  ) external view returns (bool) {
+    uint256 swapAmountDustThreshold = protocolConfig.swapAmountDustThreshold();
+    return
+      IPriceOracle(protocolConfig.oracle()).convertToUSD18Decimals(
+        _params._tokenIn,
+        _params._amountIn
+      ) < swapAmountDustThreshold;
+  }
+
+  /**
+   * @dev Verifies that the swap amount is dust.
+   * @param _params Swap parameters encapsulating position and token details.
+   * @param _nftManager Address of the Non-Fungible Position Manager.
+   */
+  function verifyDustSwapAmount(
+    IProtocolConfig protocolConfig,
+    WrapperFunctionParameters.SwapParams memory _params,
+    address _nftManager
+  ) external returns (uint256 balance0, uint256 balance1) {
+    uint256 poolRatio = LiquidityAmountsCalculations.getPoolRatioUSDBased(
+      _params._positionWrapper,
+      IPriceOracle(protocolConfig.oracle()),
+      getFactoryAddress(_nftManager),
+      _params._token0,
+      _params._token1,
+      _params._tickLower,
+      _params._tickUpper
+    );
+
+    balance0 = IERC20Upgradeable(_params._token0).balanceOf(address(this));
+    balance1 = IERC20Upgradeable(_params._token1).balanceOf(address(this));
+
+    // Check if pool ratio indicates a very one-sided position (< 1% or > 99% token0)
+    // In such extreme positions, the calculated swap amount can be very small
+    // (e.g., only 0.0001% of one token needs to be swapped to the other)
+    // For these cases, we skip verification to avoid issues with tiny amounts
+    // 1% token0 = 1e16, 99% token0 = 99e16
+    if (poolRatio < 1e16 || poolRatio > 99e16) {
+      return (balance0, balance1);
+    }
+
+    // If not a one-sided position, check if the current ratio is already correct
+    // This verifies that the position maintains the proper token ratio without any swap
+    verifyZeroSwapAmount(protocolConfig, _params, _nftManager);
+
+    return (balance0, balance1);
   }
 }

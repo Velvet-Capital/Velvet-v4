@@ -44,10 +44,14 @@ contract PriceOracleL2 is PriceOracleAbstract {
     bool isSequencerUp = answer == 0;
     if (!isSequencerUp) revert ErrorLibrary.SequencerIsDown();
 
+    // Validate that startedAt is not zero
+    if (startedAt == 0) revert ErrorLibrary.InvalidSequencerTimestamp();
+
     // Ensure the sequencer's uptime threshold is met
     if (block.timestamp - startedAt <= sequencerThreshold) {
       revert ErrorLibrary.SequencerThresholdNotCrossed();
     }
+    
     // Retrieve the latest price data for the given token pair
     (, int256 price, , uint256 updatedAt, ) = tokenPairToAggregator[base]
       .aggregators[quote]

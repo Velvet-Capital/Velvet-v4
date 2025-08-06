@@ -67,6 +67,8 @@ contract WithdrawBatch is ReentrancyGuard {
         //Balance transferred to user directly
         balanceOfSameToken = _getTokenBalance(_token, address(this));
         TransferHelper.safeTransfer(_token, user, balanceOfSameToken);
+        // Reset the baseline so that any new tokens are correctly forwarded later
+        withdrawTokenBalanceBefore = 0;
       } else {
         (bool success, ) = SWAP_TARGET.delegatecall(_callData[i]);
         if (!success) revert ErrorLibrary.WithdrawBatchCallFailed();

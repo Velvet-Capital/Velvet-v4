@@ -29,6 +29,7 @@ abstract contract SystemSettings is OwnableCheck, Initializable {
   address[] public supportedControllers;
 
   bool public isProtocolPaused;
+  bool public isRepayPaused;
   bool public isProtocolEmergencyPaused;
 
   // Mapping to track the token with their respective controller address
@@ -46,7 +47,12 @@ abstract contract SystemSettings is OwnableCheck, Initializable {
   // Mapping to track the supported factories of flashLoan provider protocol
   mapping(address => bool) public isSupportedFactory;
 
+  // Mapping to track the supported callback callers of flashLoan provider protocol
+  mapping(address => bool) public isSupportedCallbackCaller;
+
   event ProtocolPaused(bool indexed paused);
+  event RepayPauseSet(bool indexed paused);
+  event EmergencyPauseSet(bool indexed state, bool indexed unpauseProtocol);
   event MinPortfolioTokenHoldingAmountUpdated(uint256 indexed newAmount);
   event CooldownPeriodUpdated(uint256 indexed newPeriod);
   event MinInitialPortfolioAmountUpdated(uint256 indexed newAmount);
@@ -97,6 +103,15 @@ abstract contract SystemSettings is OwnableCheck, Initializable {
   }
 
   /**
+   * @notice Sets the repay pause state.
+   * @param _paused The new pause state.
+   */
+  function setRepayPause(bool _paused) public onlyProtocolOwner {
+    isRepayPaused = _paused;
+    emit RepayPauseSet(_paused);
+  }
+
+  /**
    * @notice Allows the protocol owner to set the emergency pause state of the protocol.
    * @param _state Boolean parameter to set the pause (true) or unpause (false) state of the protocol.
    * @param _unpauseProtocol Boolean parameter to determine if the protocol should be unpaused.
@@ -132,6 +147,8 @@ abstract contract SystemSettings is OwnableCheck, Initializable {
     if (!_state && _unpauseProtocol) {
       setProtocolPause(false);
     }
+
+    emit EmergencyPauseSet(_state, _unpauseProtocol);
   }
 
   /**
@@ -370,8 +387,29 @@ abstract contract SystemSettings is OwnableCheck, Initializable {
    * @param _newBorrowTokenLimit The new maximum limit for simultaneous token borrowing (must not exceed 20)
    * @dev Reverts with ErrorLibrary.ExceedsBorrowLimit() if the new limit is greater than 20
    */
-  function updateMaxBorrowTokenLimit(uint256 _newBorrowTokenLimit) external onlyProtocolOwner {
-    if(_newBorrowTokenLimit > 20) revert ErrorLibrary.ExceedsBorrowLimit();
+  function updateMaxBorrowTokenLimit(
+    uint256 _newBorrowTokenLimit
+  ) external onlyProtocolOwner {
+    if (_newBorrowTokenLimit > 20) revert ErrorLibrary.ExceedsBorrowLimit();
     MAX_BORROW_TOKEN_LIMIT = _newBorrowTokenLimit;
+  }
+
+
+  /**
+   * @notice Adds a supported callback caller to the protocol.
+   * @param _callbackCaller The address of the callback caller to add.
+   */
+  function addSupportedCallbackCaller(address _callbackCaller) external onlyProtocolOwner {
+    if (_callbackCaller == address(0)) revert ErrorLibrary.InvalidAddress();
+    isSupportedCallbackCaller[_callbackCaller] = true;
+  }
+
+
+  /**
+   * @notice Removes a supported callback caller from the protocol.
+   * @param _callbackCaller The address of the callback caller to remove.
+   */
+  function removeSupportedCallbackCaller(address _callbackCaller) external onlyProtocolOwner {
+    delete isSupportedCallbackCaller[_callbackCaller];
   }
 }

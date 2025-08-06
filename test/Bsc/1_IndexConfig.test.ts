@@ -142,13 +142,6 @@ describe.only("Tests for Portfolio Config", () => {
       protocolConfig = ProtocolConfig.attach(_protocolConfig.address);
       await protocolConfig.setCoolDownPeriod("70");
 
-      await protocolConfig.enableProtocol(
-        thenaProtocolHash,
-        "0xa51adb08cbe6ae398046a23bec013979816b77ab",
-        "0x327dd3208f0bcf590a66110acb6e5e6941a4efa0",
-        positionWrapperBaseAddress.address
-      );
-
       const Rebalancing = await ethers.getContractFactory("Rebalancing");
       const rebalancingDefult = await Rebalancing.deploy();
       await rebalancingDefult.deployed();
@@ -219,11 +212,20 @@ describe.only("Tests for Portfolio Config", () => {
       const positionManagerBaseAddress = await PositionManager.deploy();
       await positionManagerBaseAddress.deployed();
 
+      await protocolConfig.enableProtocol(
+        thenaProtocolHash,
+        "0xa51adb08cbe6ae398046a23bec013979816b77ab",
+        "0x327dd3208f0bcf590a66110acb6e5e6941a4efa0",
+        positionManagerBaseAddress.address
+      );
+
       const FeeModule = await ethers.getContractFactory("FeeModule", {});
       const feeModule = await FeeModule.deploy();
       await feeModule.deployed();
 
-      const BorrowManager = await ethers.getContractFactory("BorrowManagerVenus");
+      const BorrowManager = await ethers.getContractFactory(
+        "BorrowManagerVenus"
+      );
       borrowManager = await BorrowManager.deploy();
       await borrowManager.deployed();
 
@@ -263,7 +265,7 @@ describe.only("Tests for Portfolio Config", () => {
             _baseTokenRemovalVaultImplementation: tokenRemovalVault.address,
             _baseVelvetGnosisSafeModuleAddress: velvetSafeModule.address,
             _baseBorrowManager: borrowManager.address,
-            _basePositionManager: positionManagerBaseAddress.address,
+            _basePositionWrapper: positionWrapperBaseAddress.address,
             _baseExternalPositionStorage: externalPositionStorage.address,
             _gnosisSingleton: addresses.gnosisSingleton,
             _gnosisFallbackLibrary: addresses.gnosisFallbackLibrary,
@@ -493,6 +495,7 @@ describe.only("Tests for Portfolio Config", () => {
           rebalancing.claimRewardTokens(
             addresses.WETH_Address,
             addresses.WETH_Address,
+            0,
             "0x"
           )
         ).to.be.revertedWithCustomError(rebalancing, "ProtocolIsPaused");
@@ -565,6 +568,15 @@ describe.only("Tests for Portfolio Config", () => {
       it("claim removed tokens should fail if protocol is emergency paused", async () => {
         await expect(
           tokenExclusionManager.claimRemovedTokens(owner.address, 1, 2)
+        ).to.be.revertedWithCustomError(
+          tokenExclusionManager,
+          "ProtocolIsPaused"
+        );
+      });
+
+      it("claim removed tokens at id should fail if protocol is emergency paused", async () => {
+        await expect(
+          tokenExclusionManager.claimTokenAtId(owner.address, 2)
         ).to.be.revertedWithCustomError(
           tokenExclusionManager,
           "ProtocolIsPaused"
@@ -755,6 +767,17 @@ describe.only("Tests for Portfolio Config", () => {
             nonOwner.address
           )
         ).to.be.true;
+      });
+
+      it("transferSuperAdminOwnership should revert if new and old admin are same", async () => {
+        await expect(
+          portfolioFactory
+            .connect(nonOwner)
+            .transferSuperAdminOwnership(
+              accessController0.address,
+              nonOwner.address
+            )
+        ).to.be.revertedWithCustomError(portfolioFactory, "InvalidAddress");
       });
 
       it("new superadmin should be able to grant ,revoke assetmanager admin role", async () => {
@@ -1146,6 +1169,7 @@ describe.only("Tests for Portfolio Config", () => {
           rebalancing.claimRewardTokens(
             addresses.WETH_Address,
             addresses.WETH_Address,
+            0,
             "0x"
           )
         ).to.be.revertedWithCustomError(rebalancing, "RewardTargetNotEnabled");
@@ -1189,6 +1213,7 @@ describe.only("Tests for Portfolio Config", () => {
           rebalancing.claimRewardTokens(
             addresses.WETH_Address,
             addresses.WETH_Address,
+            0,
             "0x"
           )
         ).to.be.revertedWithCustomError(rebalancing, "ClaimFailed");
@@ -1920,6 +1945,30 @@ describe.only("Tests for Portfolio Config", () => {
           thenaProtocolHash,
           positionWrapperBaseAddress.address
         );
+      });
+
+      it("should fail if repay is paused", async () => {
+        await protocolConfig.setRepayPause(true);
+        await expect(
+          rebalancing.repay(addresses.corePool_controller, {
+            _factory: addresses.thena_factory,
+            _token0: addresses.USDT, //USDT - Pool token
+            _token1: addresses.USDC_Address, //USDC - Pool token
+            _flashLoanToken: addresses.USDT, //Token to take flashlaon
+            _debtToken: [addresses.USDT], //Token to pay debt of
+            _protocolToken: [addresses.USDT], // lending token in case of venus
+            _solverHandler: addresses.USDT, //Handler to swap
+            _bufferUnit: 0, //Buffer unit for collateral amount
+            _swapHandler: swapHandler.address,
+            _flashLoanAmount: [0],
+            _debtRepayAmount: [0],
+            firstSwapData: [],
+            secondSwapData: [],
+            isMaxRepayment: true,
+            _poolFees: [500, 500, 500],
+            isDexRepayment: false,
+          })
+        ).to.be.revertedWithCustomError(rebalancing, "RepayIsPaused");
       });
     });
   });

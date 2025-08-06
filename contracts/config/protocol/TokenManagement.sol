@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.17;
 
-import {ErrorLibrary} from "../../library/ErrorLibrary.sol";
-import {OwnableCheck} from "./OwnableCheck.sol";
-import {IPriceOracle} from "../../oracle/IPriceOracle.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable-4.9.6/proxy/utils/Initializable.sol";
+import { ErrorLibrary } from "../../library/ErrorLibrary.sol";
+import { OwnableCheck } from "./OwnableCheck.sol";
+import { IPriceOracle } from "../../oracle/IPriceOracle.sol";
+import { Initializable } from "@openzeppelin/contracts-upgradeable-4.9.6/proxy/utils/Initializable.sol";
 
 /**
  * @title TokenManagement
@@ -72,5 +72,14 @@ abstract contract TokenManagement is OwnableCheck, Initializable {
     if (_token == address(0)) revert ErrorLibrary.InvalidAddress();
     isEnabled[_token] = false;
     emit TokenDisabled(_token);
+  }
+
+  /**
+   * @dev Internal function to add update the price oracle address.
+   * @param _newOracle address of oracle to update the oracle.
+   */
+  function _updatePriceOracleTokenManagement(address _newOracle) internal {
+    if (_newOracle == address(0)) revert ErrorLibrary.InvalidOracleAddress();
+    priceOracle = IPriceOracle(_newOracle);
   }
 }

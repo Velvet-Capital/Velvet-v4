@@ -144,19 +144,19 @@ abstract contract PositionManagerAbstract is
     address token1 = _params._positionWrapper.token1();
 
     // Reinvest any collected fees back into the pool before adding new liquidity.
-    _collectFeesAndReinvest(
-      _params._positionWrapper,
-      tokenId,
-      token0,
-      token1,
-      _params._tokenIn,
-      _params._tokenOut,
-      _params._amountIn
+    (uint256 balance0Before, uint256 balance1Before) = _collectFeesAndReinvest(
+      WrapperFunctionParameters.CollectFeesParams({
+        _positionWrapper: _params._positionWrapper,
+        _tokenId: tokenId,
+        _deployer: _params._swapDeployer,
+        _token0: token0,
+        _token1: token1,
+        _tokenIn: _params._tokenIn,
+        _tokenOut: _params._tokenOut,
+        _amountIn: _params._amountIn,
+        _fee: _params._fee
+      })
     );
-
-    // Track token balances before the operation to calculate dust later.
-    uint256 balance0Before = IERC20Upgradeable(token0).balanceOf(address(this));
-    uint256 balance1Before = IERC20Upgradeable(token1).balanceOf(address(this));
 
     // Transfer the desired liquidity tokens from the caller to this contract.
     _transferTokensFromSender(
@@ -204,8 +204,8 @@ abstract contract PositionManagerAbstract is
       _params._dustReceiver,
       token0,
       token1,
-      balance0After,
-      balance1After
+      balance0After - balance0Before,
+      balance1After - balance1Before
     );
 
     emit LiquidityIncreased(msg.sender, liquidity);
@@ -227,10 +227,15 @@ abstract contract PositionManagerAbstract is
     uint256 _withdrawalAmount,
     uint256 _amount0Min,
     uint256 _amount1Min,
+    address _swapDeployer,
     address tokenIn,
     address tokenOut,
-    uint256 amountIn
+    uint256 amountIn,
+    uint24 _fee
   ) external notEmergencyPaused nonReentrant {
+    if (!externalPositionStorage.isWrappedPosition(address(_positionWrapper)))
+      revert ErrorLibrary.InvalidPositionWrapper();
+
     uint256 tokenId = _positionWrapper.tokenId();
 
     if (_positionWrapper == IPositionWrapper(address(0)))
@@ -249,16 +254,19 @@ abstract contract PositionManagerAbstract is
     _positionWrapper.burn(msg.sender, _withdrawalAmount);
 
     // If there are still wrapper tokens in circulation, collect fees and reinvest them.
-    if (totalSupplyBeforeBurn > 0)
-      _collectFeesAndReinvest(
-        _positionWrapper,
-        tokenId,
-        _positionWrapper.token0(),
-        _positionWrapper.token1(),
-        tokenIn,
-        tokenOut,
-        amountIn
-      );
+    _collectFeesAndReinvest(
+      WrapperFunctionParameters.CollectFeesParams({
+        _positionWrapper: _positionWrapper,
+        _tokenId: tokenId,
+        _deployer: _swapDeployer,
+        _token0: _positionWrapper.token0(),
+        _token1: _positionWrapper.token1(),
+        _tokenIn: tokenIn,
+        _tokenOut: tokenOut,
+        _amountIn: amountIn,
+        _fee: _fee
+      })
+    );
 
     // Calculate the proportionate amount of liquidity to decrease based on the total supply and withdrawal amount.
     uint128 liquidityToDecrease = MathUtils.safe128(
@@ -291,22 +299,9 @@ abstract contract PositionManagerAbstract is
     uint256 _amount0,
     uint256 _amount1
   ) internal {
-    // Reset the allowance for token0 to zero before setting it to a new value
-
-    TransferHelper.safeApprove(_token0, address(uniswapV3PositionManager), 0);
-    TransferHelper.safeApprove(_token1, address(uniswapV3PositionManager), 0);
-
     // Reset the allowance for token1 to zero before setting it to a new value
-    TransferHelper.safeApprove(
-      _token0,
-      address(uniswapV3PositionManager),
-      _amount0
-    );
-    TransferHelper.safeApprove(
-      _token1,
-      address(uniswapV3PositionManager),
-      _amount1
-    );
+    _safeApprove(_token0, address(uniswapV3PositionManager), _amount0);
+    _safeApprove(_token1, address(uniswapV3PositionManager), _amount1);
   }
 
   /**
@@ -344,6 +339,21 @@ abstract contract PositionManagerAbstract is
         _amount1
       );
     }
+  }
+
+  /**
+   * @notice Helper function to safely approve a token for a spender.
+   * @param token The address of the token to approve.
+   * @param spender The address of the spender.
+   * @param amount The amount to approve.
+   */
+  function _safeApprove(
+    address token,
+    address spender,
+    uint256 amount
+  ) internal virtual {
+    try IERC20Upgradeable(token).approve(spender, 0) {} catch {}
+    TransferHelper.safeApprove(token, spender, amount);
   }
 
   /**
@@ -439,72 +449,83 @@ abstract contract PositionManagerAbstract is
    * @dev This function performs several steps: it first collects the accrued fees from the specified Uniswap V3 position.
    *      If the fees for both involved tokens exceed the predefined minimum thresholds, it will reinvest these by adding them
    *      back as liquidity to the same position. This is intended to enhance the position's value and potential fee earnings.
-   * @param _positionWrapper An interface to the position wrapper that manages interactions with the Uniswap V3 positions.
-   * @param _tokenId The ID of the Uniswap V3 position from which fees are to be collected.
-   * @param _token0 The address of the first token in the Uniswap V3 position.
-   * @param _token1 The address of the second token in the Uniswap V3 position.
-   * @param tokenIn The address of the token to be swapped (input).
-   * @param tokenOut The address of the token to be received (output).
-   * @param amountIn The amount of `tokenIn` to be swapped to `tokenOut`.
+   * @param _params Parameters for collecting fees and reinvesting them.
    */
   function _collectFeesAndReinvest(
-    IPositionWrapper _positionWrapper,
-    uint256 _tokenId,
-    address _token0,
-    address _token1,
-    address tokenIn,
-    address tokenOut,
-    uint256 amountIn
-  ) internal {
+    WrapperFunctionParameters.CollectFeesParams memory _params
+  ) internal returns (uint256 balanceBefore0, uint256 balanceBefore1) {
+    bool lastWithdrawal = _params._positionWrapper.totalSupply() == 0;
     // Collect all available fees for the position to this contract
+    if (lastWithdrawal) {
+      balanceBefore0 = IERC20Upgradeable(_params._token0).balanceOf(
+        address(this)
+      );
+      balanceBefore1 = IERC20Upgradeable(_params._token1).balanceOf(
+        address(this)
+      );
+    }
+
     uniswapV3PositionManager.collect(
       INonfungiblePositionManager.CollectParams({
-        tokenId: _tokenId,
+        tokenId: _params._tokenId,
         recipient: address(this),
         amount0Max: type(uint128).max,
         amount1Max: type(uint128).max
       })
     );
 
-    (int24 tickLower, int24 tickUpper) = _getTicksFromPosition(_tokenId);
-
-    (uint256 feeCollectedT0, uint256 feeCollectedT1) = _swapTokensForAmount(
-      WrapperFunctionParameters.SwapParams({
-        _positionWrapper: _positionWrapper,
-        _tokenId: _tokenId,
-        _amountIn: amountIn,
-        _token0: _token0,
-        _token1: _token1,
-        _tokenIn: tokenIn,
-        _tokenOut: tokenOut,
-        _tickLower: tickLower,
-        _tickUpper: tickUpper
-      })
-    );
-
-    // Reinvest fees if they exceed the minimum threshold for reinvestment
-    if (
-      feeCollectedT0 > MIN_REINVESTMENT_AMOUNT &&
-      feeCollectedT1 > MIN_REINVESTMENT_AMOUNT
-    ) {
-      // Approve the Uniswap manager to use the tokens for liquidity.
-      _approveNonFungiblePositionManager(
-        _token0,
-        _token1,
-        feeCollectedT0,
-        feeCollectedT1
+    if (!lastWithdrawal) {
+      (int24 tickLower, int24 tickUpper) = _getTicksFromPosition(
+        _params._tokenId
       );
 
-      // Increase liquidity using all collected fees
-      uniswapV3PositionManager.increaseLiquidity(
-        INonfungiblePositionManager.IncreaseLiquidityParams({
-          tokenId: _tokenId,
-          amount0Desired: feeCollectedT0,
-          amount1Desired: feeCollectedT1,
-          amount0Min: 1,
-          amount1Min: 1,
-          deadline: block.timestamp
+      (uint256 feeCollectedT0, uint256 feeCollectedT1) = _swapTokensForAmount(
+        WrapperFunctionParameters.SwapParams({
+          _positionWrapper: _params._positionWrapper,
+          _tokenId: _params._tokenId,
+          _amountIn: _params._amountIn,
+          _swapDeployer: _params._deployer,
+          _token0: _params._token0,
+          _token1: _params._token1,
+          _tokenIn: _params._tokenIn,
+          _tokenOut: _params._tokenOut,
+          _tickLower: tickLower,
+          _tickUpper: tickUpper,
+          _fee: _params._fee
         })
+      );
+
+      // Reinvest fees if they exceed the minimum threshold for reinvestment
+      if (
+        feeCollectedT0 > MIN_REINVESTMENT_AMOUNT &&
+        feeCollectedT1 > MIN_REINVESTMENT_AMOUNT
+      ) {
+        // Approve the Uniswap manager to use the tokens for liquidity.
+        _approveNonFungiblePositionManager(
+          _params._token0,
+          _params._token1,
+          feeCollectedT0,
+          feeCollectedT1
+        );
+
+        // Increase liquidity using all collected fees
+        uniswapV3PositionManager.increaseLiquidity(
+          INonfungiblePositionManager.IncreaseLiquidityParams({
+            tokenId: _params._tokenId,
+            amount0Desired: feeCollectedT0,
+            amount1Desired: feeCollectedT1,
+            amount0Min: 0,
+            amount1Min: 0,
+            deadline: block.timestamp
+          })
+        );
+      }
+
+      balanceBefore0 = IERC20Upgradeable(_params._token0).balanceOf(
+        address(this)
+      );
+      balanceBefore1 = IERC20Upgradeable(_params._token1).balanceOf(
+        address(this)
       );
     }
   }

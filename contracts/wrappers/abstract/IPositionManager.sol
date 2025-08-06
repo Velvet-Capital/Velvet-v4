@@ -70,9 +70,11 @@ interface IPositionManager {
     uint256 _withdrawalAmount,
     uint256 _amount0Min,
     uint256 _amount1Min,
+    address _swapDeployer,
     address tokenIn,
     address tokenOut,
-    uint256 amountIn
+    uint256 amountIn,
+    uint24 _fee
   ) external;
 
   /**
@@ -88,4 +90,6 @@ interface IPositionManager {
   function protocolConfig() external view returns (address);
 
   function externalPositionStorage() external view returns (address);
+
+  function protocolId() external view returns (bytes32);
 }

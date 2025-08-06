@@ -27,7 +27,7 @@ abstract contract TokenWhitelistManagement is
    * @notice Initializes the contract with essential configuration details and initial whitelisted tokens.
    * @param _whitelistTokens Initial list of tokens to whitelist.
    * @param _accessControllerAddress Address of the access controller.
-   * @param _basePositionManager Address of the base position manager.
+   * @param _basePositionWrapper Address of the base position manager.
    * @param _tokenWhitelistingEnabled Flag indicating if token whitelisting is to be enabled.
    * @param _protocolConfig Address of the protocol configuration contract.
    * @dev The function sets initial whitelisted tokens if whitelisting is enabled and performs initial configuration of the contract.
@@ -35,7 +35,7 @@ abstract contract TokenWhitelistManagement is
   function __TokenWhitelistManagement_init(
     address[] calldata _whitelistTokens,
     address _accessControllerAddress,
-    address _basePositionManager,
+    address _basePositionWrapper,
     address _baseExternalPositionStorage,
     bool _tokenWhitelistingEnabled,
     bytes32[] calldata _witelistedProtocolIds,
@@ -47,7 +47,7 @@ abstract contract TokenWhitelistManagement is
     ExternalPositionManagement__init(
       _protocolConfig,
       _accessControllerAddress,
-      _basePositionManager,
+      _basePositionWrapper,
       _baseExternalPositionStorage,
       _witelistedProtocolIds
     );

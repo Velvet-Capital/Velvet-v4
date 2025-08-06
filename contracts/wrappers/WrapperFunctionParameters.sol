@@ -121,9 +121,11 @@ library WrapperFunctionParameters {
     uint256 _amount1Desired;
     uint256 _amount0Min;
     uint256 _amount1Min;
+    address _swapDeployer;
     address _tokenIn;
     address _tokenOut;
     uint256 _amountIn;
+    uint24 _fee;
   }
 
   /**
@@ -143,11 +145,34 @@ library WrapperFunctionParameters {
     IPositionWrapper _positionWrapper;
     uint256 _tokenId;
     uint256 _amountIn;
+    address _swapDeployer;
     address _token0;
     address _token1;
     address _tokenIn;
     address _tokenOut;
     int24 _tickLower;
     int24 _tickUpper;
+    uint24 _fee;
+  }
+
+  /**
+   * @param _positionWrapper An interface to the position wrapper that manages interactions with the Uniswap V3 positions.
+   * @param _tokenId The ID of the Uniswap V3 position from which fees are to be collected.
+   * @param _token0 The address of the first token in the Uniswap V3 position.
+   * @param _token1 The address of the second token in the Uniswap V3 position.
+   * @param tokenIn The address of the token to be swapped (input).
+   * @param tokenOut The address of the token to be received (output).
+   * @param amountIn The amount of `tokenIn` to be swapped to `tokenOut`.
+   */
+  struct CollectFeesParams {
+    IPositionWrapper _positionWrapper;
+    uint256 _tokenId;
+    address _deployer;
+    address _token0;
+    address _token1;
+    address _tokenIn;
+    address _tokenOut;
+    uint256 _amountIn;
+    uint24 _fee;
   }
 }

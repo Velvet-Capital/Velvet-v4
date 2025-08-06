@@ -34,7 +34,7 @@ library TokenBalanceLibrary {
     address vault,
     address[] memory portfolioTokens,
     IProtocolConfig _protocolConfig
-  ) public view returns (ControllerData[] memory controllersData) {
+  ) public returns (ControllerData[] memory controllersData) {
     address[] memory controllers = _protocolConfig.getSupportedControllers();
     controllersData = new ControllerData[](controllers.length);
 
@@ -104,16 +104,14 @@ library TokenBalanceLibrary {
     IProtocolConfig _protocolConfig
   )
     public
-    view
     returns (
-      uint256[] memory vaultBalances,
-      ControllerData[] memory controllersData
+      uint256[] memory vaultBalances
     )
   {
     uint256 portfolioLength = portfolioTokens.length;
     vaultBalances = new uint256[](portfolioLength); // Initializes the array to hold fetched balances.
-
-    controllersData = getControllersData(
+    
+    ControllerData[] memory controllersData = getControllersData(
       _vault,
       portfolioTokens,
       _protocolConfig
@@ -149,6 +147,7 @@ library TokenBalanceLibrary {
   ) public view returns (uint256 tokenBalance) {
     if (_token == address(0) || _vault == address(0))
       revert ErrorLibrary.InvalidAddress(); // Ensures neither the token nor the vault address is zero.
+    uint256 rawBalance = _getTokenBalanceOf(_token, _vault);
     if (_protocolConfig.isBorrowableToken(_token)) {
       address controller = _protocolConfig.marketControllers(_token);
       ControllerData memory controllerData = findControllerData(
@@ -156,12 +155,48 @@ library TokenBalanceLibrary {
         controller
       );
 
-      uint256 rawBalance = _getTokenBalanceOf(_token, _vault);
-      tokenBalance =
+      // Get the asset handler for the controller
+      IAssetHandler assetHandler = IAssetHandler(
+        _protocolConfig.assetHandlers(controller)
+      );
+
+      // Check if token is being used as collateral
+      bool isCollateral = assetHandler.isCollateralEnabled(
+        _token,
+        _vault,
+        controller
+      );
+
+      // If token is being used as collateral, adjust the balance by the unused collateral percentage
+      if (isCollateral) {
+        tokenBalance =
         (rawBalance * controllerData.unusedCollateralPercentage) /
         1e18;
+      } else {
+        // If token is not being used as collateral, return the raw balance
+        tokenBalance = rawBalance;
+      }
     } else {
-      tokenBalance = _getTokenBalanceOf(_token, _vault);
+      tokenBalance = rawBalance;
+    }
+  }
+
+  function isCollateralEnabled(
+    address _token,
+    address _vault,
+    IProtocolConfig _protocolConfig
+  ) public view returns (bool isCollateral) {
+    isCollateral = false;
+    if (_protocolConfig.isBorrowableToken(_token)) {
+      address controller = _protocolConfig.marketControllers(_token);
+      IAssetHandler assetHandler = IAssetHandler(
+        _protocolConfig.assetHandlers(controller)
+      );
+       isCollateral = assetHandler.isCollateralEnabled(
+        _token,
+        _vault,
+        controller
+      );
     }
   }
 

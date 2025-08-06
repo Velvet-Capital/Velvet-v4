@@ -6,7 +6,7 @@ import hre from "hardhat"
 export const setupTest = async () => {
     const [deployer, executor, user, receiver] = await ethers.getSigners(); // Get signers
 
-    const ensoAggregator = "0x38147794FF247e5Fc179eDbAE6C37fff88f68C52"
+    const ensoAggregator = "0x7663fd40081dcCd47805c00e613B6beAc3B87F08"
     const usdt = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2"
 
 

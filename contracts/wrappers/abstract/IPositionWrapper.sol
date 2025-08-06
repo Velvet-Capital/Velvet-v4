@@ -57,7 +57,12 @@ interface IPositionWrapper is IERC20Upgradeable, IERC20MetadataUpgradeable {
    * @notice Updates the token ID associated with the ERC20 tokens, typically during adjustments in the position.
    * @param _tokenId The new Uniswap V3 position ID.
    */
-  function updateTokenId(uint256 _tokenId) external;
+  function updateTokenId(
+    uint256 _tokenId,
+    uint24 _newFee,
+    int24 _newTickLower,
+    int24 _newTickUpper
+  ) external;
 
   /**
    * @notice Retrieves the token ID of the Uniswap V3 position.
@@ -90,4 +95,6 @@ interface IPositionWrapper is IERC20Upgradeable, IERC20MetadataUpgradeable {
   function initialTickUpper() external returns (int24);
 
   function positionManager() external returns (address);
+
+  function parentPositionManager() external returns (address);
 }

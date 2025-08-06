@@ -4,6 +4,7 @@ import "@nomicfoundation/hardhat-chai-matchers";
 import { ethers, network, upgrades } from "hardhat";
 import { BigNumber, Contract } from "ethers";
 import VENUS_CHAINLINK_ORACLE_ABI from "../abi/venus_chainlink_oracle.json";
+import BINANCE_ORACLE_ABI from "../abi/binance_oracle.json";
 
 import {
   PERMIT2_ADDRESS,
@@ -174,7 +175,7 @@ describe.only("Tests for Deposit", () => {
 
       const EnsoHandler = await ethers.getContractFactory("EnsoHandler");
       ensoHandler = await EnsoHandler.deploy(
-        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+        "0x7663fd40081dcCd47805c00e613B6beAc3B87F08"
       );
       await ensoHandler.deployed();
 
@@ -182,7 +183,7 @@ describe.only("Tests for Deposit", () => {
         "DepositBatchExternalPositions"
       );
       depositBatch = await DepositBatch.deploy(
-        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+        "0x7663fd40081dcCd47805c00e613B6beAc3B87F08"
       );
       await depositBatch.deployed();
 
@@ -194,7 +195,7 @@ describe.only("Tests for Deposit", () => {
 
       const DepositBatch2 = await ethers.getContractFactory("DepositBatch");
       depositBatch2 = await DepositBatch2.deploy(
-        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+        "0x7663fd40081dcCd47805c00e613B6beAc3B87F08"
       );
       await depositBatch2.deployed();
 
@@ -202,7 +203,7 @@ describe.only("Tests for Deposit", () => {
         "WithdrawBatchExternalPositions"
       );
       withdrawBatch = await WithdrawBatch.deploy(
-        "0x38147794ff247e5fc179edbae6c37fff88f68c52"
+        "0x7663fd40081dcCd47805c00e613B6beAc3B87F08"
       );
       await withdrawBatch.deployed();
 
@@ -232,6 +233,7 @@ describe.only("Tests for Deposit", () => {
       );
 
       const chainLinkOracle = "0x1B2103441A0A108daD8848D8F5d790e4D402921F";
+      const binanceOracle = "0x594810b741d136f1960141C0d8Fb4a91bE78A820";
 
       let oracle = new ethers.Contract(
         chainLinkOracle,
@@ -239,13 +241,26 @@ describe.only("Tests for Deposit", () => {
         owner.provider
       );
 
+      let binance_Oracle = new ethers.Contract(
+        binanceOracle,
+        BINANCE_ORACLE_ABI,
+        owner.provider
+      );
+
       let oracleOwner = await oracle.owner();
+      let binance_OracleOwner = await binance_Oracle.owner();
 
       await network.provider.request({
         method: "hardhat_impersonateAccount",
         params: [oracleOwner],
       });
       const oracleSigner = await ethers.getSigner(oracleOwner);
+
+      await network.provider.request({
+        method: "hardhat_impersonateAccount",
+        params: [binance_OracleOwner],
+      });
+      const binance_OracleSigner = await ethers.getSigner(binance_OracleOwner);
 
       const tx = await oracle.connect(oracleSigner).setTokenConfigs([
         {
@@ -263,33 +278,37 @@ describe.only("Tests for Deposit", () => {
           feed: "0x264990fbd0A4796A3E3d8E37C4d5F87a3aCa5Ebf",
           maxStalePeriod: "31536000",
         },
+        {
+          asset: "0x55d398326f99059fF775485246999027B3197955",
+          feed: "0xb97ad0e74fa7d920791e90258a6e2085088b4320",
+          maxStalePeriod: "31536000",
+        },
       ]);
       await tx.wait();
+
+      await binance_Oracle
+        .connect(binance_OracleSigner)
+        .setMaxStalePeriod("BNB", "31536000");
 
       const PancakeswapHandler = await ethers.getContractFactory(
         "PancakeSwapHandler"
       );
-      pancakeSwapHandler = await PancakeswapHandler.deploy();
+      pancakeSwapHandler = await PancakeswapHandler.deploy(
+        addresses.PancakeSwapV3RouterAddress
+      );
       await pancakeSwapHandler.deployed();
 
       protocolConfig = ProtocolConfig.attach(_protocolConfig.address);
       await protocolConfig.setCoolDownPeriod("70");
       await protocolConfig.enableSolverHandler(ensoHandler.address);
       await protocolConfig.enableSwapHandler(pancakeSwapHandler.address);
-   
+
       await protocolConfig.enableTokens([
         iaddress.ethAddress,
         iaddress.btcAddress,
         iaddress.usdcAddress,
         iaddress.usdtAddress,
       ]);
-
-      await protocolConfig.enableProtocol(
-        thenaProtocolHash,
-        "0xa51adb08cbe6ae398046a23bec013979816b77ab",
-        "0x327dd3208f0bcf590a66110acb6e5e6941a4efa0",
-        positionWrapperBaseAddress.address
-      );
 
       const Rebalancing = await ethers.getContractFactory("Rebalancing");
       const rebalancingDefult = await Rebalancing.deploy();
@@ -319,6 +338,8 @@ describe.only("Tests for Deposit", () => {
         "VenusAssetHandler"
       );
       venusAssetHandler = await VenusAssetHandler.deploy(
+        addresses.vBNB_Address,
+        addresses.WETH_Address
       );
       await venusAssetHandler.deployed();
 
@@ -404,6 +425,13 @@ describe.only("Tests for Deposit", () => {
       const positionManagerBaseAddress = await PositionManager.deploy();
       await positionManagerBaseAddress.deployed();
 
+      await protocolConfig.enableProtocol(
+        thenaProtocolHash,
+        "0xa51adb08cbe6ae398046a23bec013979816b77ab",
+        "0x327dd3208f0bcf590a66110acb6e5e6941a4efa0",
+        positionManagerBaseAddress.address
+      );
+
       const AmountCalculationsAlgebra = await ethers.getContractFactory(
         "AmountCalculationsAlgebra"
       );
@@ -453,7 +481,7 @@ describe.only("Tests for Deposit", () => {
             _baseTokenRemovalVaultImplementation: tokenRemovalVault.address,
             _baseVelvetGnosisSafeModuleAddress: velvetSafeModule.address,
             _baseBorrowManager: borrowManager.address,
-            _basePositionManager: positionManagerBaseAddress.address,
+            _basePositionWrapper: positionWrapperBaseAddress.address,
             _baseExternalPositionStorage: externalPositionStorage.address,
             _gnosisSingleton: addresses.gnosisSingleton,
             _gnosisFallbackLibrary: addresses.gnosisFallbackLibrary,
@@ -467,11 +495,6 @@ describe.only("Tests for Deposit", () => {
 
       portfolioFactory = PortfolioFactory.attach(
         portfolioFactoryInstance.address
-      );
-
-      await portfolioFactory.setPositionManagerAddresses(
-        "0xa51adb08cbe6ae398046a23bec013979816b77ab",
-        "0x327dd3208f0bcf590a66110acb6e5e6941a4efa0"
       );
 
       await withdrawManager.initialize(
@@ -572,7 +595,7 @@ describe.only("Tests for Deposit", () => {
       await assetManagementConfig.enableUniSwapV3Manager(thenaProtocolHash);
 
       let positionManagerAddress =
-        await assetManagementConfig.positionManager();
+        await assetManagementConfig.lastDeployedPositionManager();
 
       positionManager = PositionManager.attach(positionManagerAddress);
 
@@ -691,10 +714,12 @@ describe.only("Tests for Deposit", () => {
             _amount0Min: [1, 1],
             _amount1Min: [1, 1],
             _isExternalPosition: isExternalPosition,
+            _swapDeployer: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenIn: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenOut: [ZERO_ADDRESS, ZERO_ADDRESS],
             _amountIn: ["0", "0"],
             _deployer: zeroAddress,
+            _fee: [0, 0],
           },
           {
             value: "1000000000000000000",
@@ -775,10 +800,12 @@ describe.only("Tests for Deposit", () => {
             _amount0Min: [1, 1],
             _amount1Min: [1, 1],
             _isExternalPosition: isExternalPosition,
+            _swapDeployer: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenIn: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenOut: [ZERO_ADDRESS, ZERO_ADDRESS],
             _amountIn: ["0", "0"],
             _deployer: zeroAddress,
+            _fee: [0, 0],
           }
         );
 
@@ -857,10 +884,12 @@ describe.only("Tests for Deposit", () => {
             _amount0Min: [1, 1],
             _amount1Min: [1, 1],
             _isExternalPosition: isExternalPosition,
+            _swapDeployer: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenIn: [ZERO_ADDRESS, ZERO_ADDRESS],
             _tokenOut: [ZERO_ADDRESS, ZERO_ADDRESS],
             _amountIn: ["0", "0"],
             _deployer: zeroAddress,
+            _fee: [0, 0],
           }
         );
 
@@ -904,9 +933,9 @@ describe.only("Tests for Deposit", () => {
             "bytes[][]", // callDataIncreaseLiquidity
             "address[][]", // increaseLiquidityTarget
             "address[]", // underlyingTokensDecreaseLiquidity
-            "address[]", // tokensIn
-            "address[]", // tokens
-            "uint256[]", // minExpectedOutputAmounts
+            "address[][]", // tokensIn
+            "address[][]", // tokens
+            "uint256[][]", // minExpectedOutputAmounts
           ],
           [
             [[postResponse.data.tx.data]],
@@ -914,9 +943,9 @@ describe.only("Tests for Deposit", () => {
             [[]],
             [[]],
             [],
-            [sellToken],
-            [buyToken],
-            [0],
+            [[sellToken]],
+            [[buyToken]],
+            [[0]],
           ]
         );
 
@@ -1122,7 +1151,7 @@ describe.only("Tests for Deposit", () => {
 
         // Define the ABI with the correct structure of WrapperDepositParams
         let ABI = [
-          "function initializePositionAndDeposit(address _dustReceiver, address _positionWrapper, (uint256 _amount0Desired, uint256 _amount1Desired, uint256 _amount0Min, uint256 _amount1Min) params)",
+          "function initializePositionAndDeposit(address _dustReceiver, address _positionWrapper, (uint256 _amount0Desired, uint256 _amount1Desired, uint256 _amount0Min, uint256 _amount1Min, address _deployer) params)",
         ];
 
         let abiEncode = new ethers.utils.Interface(ABI);
@@ -1138,6 +1167,7 @@ describe.only("Tests for Deposit", () => {
               _amount1Desired: (depositAmounts.amount1 * 0.9995).toFixed(0),
               _amount0Min: 0,
               _amount1Min: 0,
+              _deployer: zeroAddress,
             },
           ]
         );
@@ -1149,9 +1179,9 @@ describe.only("Tests for Deposit", () => {
             "bytes[][]", // callDataIncreaseLiquidity
             "address[][]", // increaseLiquidityTarget
             "address[]", // underlyingTokensDecreaseLiquidity
-            "address[]", // tokensIn
-            "address[]", // tokens
-            " uint256[]", // minExpectedOutputAmounts
+            "address[][]", // tokensIn
+            "address[][]", // tokens
+            " uint256[][]", // minExpectedOutputAmounts
           ],
           [
             callDataEnso,
@@ -1159,9 +1189,9 @@ describe.only("Tests for Deposit", () => {
             callDataIncreaseLiquidity,
             [[token0, token1, positionManager.address]],
             [],
-            [sellToken],
-            [buyToken],
-            [0],
+            [[sellToken]],
+            [[buyToken]],
+            [[0]],
           ]
         );
 
@@ -1214,9 +1244,9 @@ describe.only("Tests for Deposit", () => {
             "bytes[][]", // callDataIncreaseLiquidity
             "address[][]", // increaseLiquidityTarget
             "address[]", // underlyingTokensDecreaseLiquidity
-            "address[]", // tokensIn
-            "address[]", // tokens
-            " uint256[]", // minExpectedOutputAmounts
+            "address[][]", // tokensIn
+            "address[][]", // tokens
+            " uint256[][]", // minExpectedOutputAmounts
           ],
           [
             [[postResponse.data.tx.data]],
@@ -1224,9 +1254,9 @@ describe.only("Tests for Deposit", () => {
             [[]],
             [[]],
             [],
-            [sellToken],
-            [buyToken],
-            [0],
+            [[sellToken]],
+            [[buyToken]],
+            [[0]],
           ]
         );
 
@@ -1254,14 +1284,14 @@ describe.only("Tests for Deposit", () => {
         let tokens = await portfolio.getTokens();
 
         let flashloanBufferUnit = 23; //Flashloan buffer unit in 1/10000
-        let bufferUnit = 160; //Buffer unit for collateral amount in 1/100000
+        let bufferUnit = 300; //Buffer unit for collateral amount in 1/100000
 
         let balanceBorrowed =
           await portfolioCalculations.getVenusTokenBorrowedBalance(
             [addresses.vDAI_Address],
             vault
           );
-        const userData = await venusAssetHandler.getUserAccountData(
+        const userData = await venusAssetHandler.callStatic.getUserAccountData(
           vault,
           addresses.corePool_controller,
           tokens
@@ -1299,16 +1329,23 @@ describe.only("Tests for Deposit", () => {
         );
 
         let encodedParameters1 = [];
+
+        const flashLoanFee = await portfolioCalculations.getFlashLoanFeeFromPool(
+          addresses.thena_factory,
+          addresses.USDT, //USDT - Pool token
+          addresses.USDC_Address //USDC - Pool token
+        );
+
         //Because repay(rebalance) is one borrow token at a time
         const amounToSell =
-          await portfolioCalculations.getCollateralAmountToSell(
+          await portfolioCalculations.callStatic.getCollateralAmountToSell(
             vault,
             addresses.corePool_controller,
             venusAssetHandler.address,
             [addresses.vDAI_Address],
             tokens,
             [balanceToRepay],
-            "10", //Flash loan fee
+            flashLoanFee, //Flash loan fee
             bufferUnit //Buffer unit for collateral amount
           );
         console.log("amounToSell", amounToSell);
