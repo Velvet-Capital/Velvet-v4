@@ -35,11 +35,13 @@
     "test:arb": "CHAIN_ID=42161 hardhat test test/Arbitrum",
     "test:bsc": "CHAIN_ID=56 hardhat test test/Bsc",
     "test:meta-aggregator": "npx hardhat test test/meta-aggregator-test/*test.*",
+    "test:fee-distributor": "npx hardhat test test/fee-distributor-test/*test.*",
     "test:meta-aggregator-integration": "npx hardhat test test/meta-aggregator-integration-test-base/*test.* --vvv",
     "coverage:meta-aggregator": "npx hardhat coverage --sources meta-aggregator  --testfiles \"test/meta-aggregator-test/*test.*\"",
-    "deploy:meta-aggregator": "npx hardhat run scripts/deployMetaAggregator.ts --network BaseMainnet"
+    "coverage:fee-distributor": "npx hardhat coverage --sources fee-distribution  --testfiles \"test/fee-distributor-test/*test.*\"",
+    "deploy:meta-aggregator": "npx hardhat run scripts/deployMetaAggregator.ts --network BaseMainnet",
+    "deploy:fee-distributor": "npx hardhat run scripts/deployFeeDistributor.ts --network BaseMainnet"
   },
-  "private": true,
   "devDependencies": {
     "@nomicfoundation/ethereumjs-evm": "^2.0.4",
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
